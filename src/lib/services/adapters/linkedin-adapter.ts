@@ -21,14 +21,14 @@ import {
 export const CONTACT_PLACEHOLDER_NAME = "LinkedIn member";
 
 /**
- * LinkedIn channel adapter backed by the Unipile API. SERVER ONLY — imported
+ * LinkedIn channel adapter backed by the Unipile API. SERVER ONLY - imported
  * exclusively by route handlers under app/api/inbox/. Translates Unipile
  * payloads into our normalized domain types. Field mappings below are verified
  * against live API responses.
  *
  * It maps ONLY Unipile-sourced data (messages, contact, timestamps). App-owned
  * workflow state (status, assignee, custom tags, notes, read overrides) is
- * merged in by the route via lib/server/app-store.ts — not here.
+ * merged in by the route via lib/server/app-store.ts - not here.
  */
 
 /** Display name we attribute outbound messages to. */
@@ -156,7 +156,7 @@ function mapChatToConversation(chat: UnipileChat, contact: Contact): Conversatio
  * Determines whether a message was sent BY US (the SBI page).
  *
  * ⚠️ In a LinkedIn ORGANIZATION mailbox, Unipile reports `is_sender: 0` and
- * `attendee_type: "ORGANIZATION"` for EVERY message — neither distinguishes
+ * `attendee_type: "ORGANIZATION"` for EVERY message - neither distinguishes
  * direction. The reliable signal is `sender_id`: the page's own replies carry
  * `sender_id === <mailbox id>` (e.g. "2271371"), while the contact's messages
  * carry `sender_id === <their provider_id>`. We treat anything sent by the page
@@ -192,7 +192,7 @@ export class LinkedInAdapter implements ChannelAdapter {
 
   /**
    * Lists SBI conversations. Contacts are resolved from the process cache only
-   * (no network) — uncached ones get a placeholder and are hydrated lazily by
+   * (no network) - uncached ones get a placeholder and are hydrated lazily by
    * the client as rows scroll into view. Pass `{ hydrateContacts: true }` to
    * eagerly resolve everything (e.g. for a server-side export).
    */
@@ -280,7 +280,7 @@ export class LinkedInAdapter implements ChannelAdapter {
     const sbiMailboxId = process.env.UNIPILE_SBI_MAILBOX_ID;
     const messages = await getMessages(externalConversationId);
 
-    // Dedupe by id — Unipile and our optimistic/refetch paths can momentarily
+    // Dedupe by id - Unipile and our optimistic/refetch paths can momentarily
     // surface the same message twice; keep the last (freshest delivery state).
     const byId = new Map<string, Message>();
     for (const m of messages) {

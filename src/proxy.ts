@@ -3,7 +3,7 @@ import { SESSION_COOKIE } from "@/lib/auth/constants";
 
 /**
  * Proxy (formerly Middleware in Next < 16). Coarse auth gate: checks only for
- * the PRESENCE of the session cookie (cheap, no DB) — full validation happens
+ * the PRESENCE of the session cookie (cheap, no DB) - full validation happens
  * in the API routes / pages via getSessionUser(). Unauthenticated requests are
  * redirected to /login (pages) or rejected with 401 (API).
  *

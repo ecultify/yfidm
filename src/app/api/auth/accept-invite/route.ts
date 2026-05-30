@@ -4,7 +4,7 @@ import { acceptInvite, getInvite } from "@/lib/server/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET ?token= — validates an invite token and returns the invitee's name/email. */
+/** GET ?token= - validates an invite token and returns the invitee's name/email. */
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token") ?? "";
   const invite = await getInvite(token);
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ name: invite.name, email: invite.email });
 }
 
-/** POST { token, password } — sets the password and activates the account. */
+/** POST { token, password } - sets the password and activates the account. */
 export async function POST(req: NextRequest) {
   const { token, password } = (await req.json()) as {
     token?: string;

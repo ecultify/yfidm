@@ -6,13 +6,14 @@ import {
   requireAdmin,
 } from "@/lib/server/auth";
 import { avatarForPreset } from "@/lib/avatars";
+import { publicOrigin } from "@/lib/server/request-origin";
 import type { UserRole } from "@/lib/auth/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function inviteUrl(req: NextRequest, token: string): string {
-  return new URL(`/invite/${token}`, req.nextUrl.origin).toString();
+  return `${publicOrigin(req)}/invite/${token}`;
 }
 
 function handleError(e: unknown) {
@@ -23,7 +24,7 @@ function handleError(e: unknown) {
   return NextResponse.json({ error: message }, { status: 500 });
 }
 
-/** GET — list the team (admin only). */
+/** GET - list the team (admin only). */
 export async function GET() {
   try {
     await requireAdmin();
@@ -33,7 +34,7 @@ export async function GET() {
   }
 }
 
-/** POST — create an invited user and return the invite link (admin only). */
+/** POST - create an invited user and return the invite link (admin only). */
 export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin();

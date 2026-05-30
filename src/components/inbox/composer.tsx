@@ -69,7 +69,7 @@ export function Composer({
       });
     } else {
       sendMessage.mutate(body, {
-        onError: () => toast.error("Message failed to send — tap to retry"),
+        onError: () => toast.error("Message failed to send - tap to retry"),
       });
     }
     textareaRef.current?.focus();
@@ -139,7 +139,7 @@ export function Composer({
         <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
           <Clock className="mt-px size-3.5 shrink-0" />
           <span>
-            Reply window closed — Instagram only allows replies within 24h of the
+            Reply window closed - Instagram only allows replies within 24h of the
             user&apos;s last message. Add an internal note, or wait for them to
             message again.
           </span>
@@ -162,8 +162,8 @@ export function Composer({
           rows={2}
           placeholder={
             isNote
-              ? "Write a note for your team (never sent to the contact)…"
-              : `Reply to ${contactName}…`
+              ? "Write a note for your team (never sent to the contact)..."
+              : `Reply to ${contactName}...`
           }
           className="min-h-[60px] resize-none border-0 bg-transparent px-3 py-2.5 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
         />

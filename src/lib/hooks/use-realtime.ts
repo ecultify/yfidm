@@ -23,7 +23,7 @@ export function useRealtimeInbound(onInbound?: (m: Message) => void) {
       onInbound?.(message);
     });
     return unsubscribe;
-    // onInbound is intentionally not a dependency — the latest closure is fine
+    // onInbound is intentionally not a dependency - the latest closure is fine
     // for a fire-and-forget toast, and re-subscribing on every render is wasteful.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qc]);

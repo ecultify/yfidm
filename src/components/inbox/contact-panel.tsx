@@ -195,7 +195,7 @@ export function ContactPanel({ conversationId }: { conversationId: string }) {
 
         <Separator />
 
-        {/* Activity timeline — who did what, shared across the team */}
+        {/* Activity timeline - who did what, shared across the team */}
         <Field label={`Activity (${activity.length})`}>
           {activity.length === 0 ? (
             <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-4 text-xs text-muted-foreground">

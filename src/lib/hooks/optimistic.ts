@@ -4,7 +4,7 @@ import { queryKeys } from "./query-keys";
 
 /**
  * Optimistically applies a partial patch to a conversation everywhere it's
- * cached — both every `["conversations", filter]` list and the single
+ * cached - both every `["conversations", filter]` list and the single
  * `["conversation", id]` entry. Returns a rollback snapshot for onError.
  */
 export function patchConversationEverywhere(
@@ -39,7 +39,7 @@ export function invalidateConversations(qc: QueryClient, id?: string) {
   qc.invalidateQueries({ queryKey: ["conversations"] });
   if (id) {
     qc.invalidateQueries({ queryKey: queryKeys.conversation(id) });
-    // The action was just logged server-side — refresh the activity timeline.
+    // The action was just logged server-side - refresh the activity timeline.
     qc.invalidateQueries({ queryKey: queryKeys.activity(id) });
   }
 }

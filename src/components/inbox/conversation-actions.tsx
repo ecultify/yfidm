@@ -187,7 +187,7 @@ export function TagEditor({
                 add(value);
               }
             }}
-            placeholder="Create or find a tag…"
+            placeholder="Create or find a tag..."
             className="h-8 text-sm"
           />
           <Button

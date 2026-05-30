@@ -11,7 +11,7 @@ export const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
  * Whether the 24h reply window is currently open for an Instagram thread,
  * derived from the timestamp of the last inbound (contact) message.
  *
- * When there is no inbound message loaded yet we return `true` (don't block) —
+ * When there is no inbound message loaded yet we return `true` (don't block) -
  * the server send still acts as the authoritative gate, and we avoid flashing a
  * "closed" notice before messages have loaded.
  * // TODO: Meta also forbids initiating a brand-new thread with no prior inbound

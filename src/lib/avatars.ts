@@ -1,7 +1,7 @@
 /**
  * Default profile avatars for user accounts (client-safe).
  *
- * Same friendly "notionists" style used elsewhere in the app — one male-leaning
+ * Same friendly "notionists" style used elsewhere in the app - one male-leaning
  * and one female-leaning preset chosen when an admin creates a user.
  */
 export const AVATAR_PRESETS = {

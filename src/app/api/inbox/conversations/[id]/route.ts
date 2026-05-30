@@ -45,7 +45,7 @@ interface PatchBody {
 /**
  * PATCH app-owned workflow state (status / assignee / tags / read). Persists to
  * MySQL (shared across users), tagged with the acting user for the activity log.
- * Channel-agnostic — used by LinkedIn AND Instagram conversations.
+ * Channel-agnostic - used by LinkedIn AND Instagram conversations.
  */
 export async function PATCH(
   req: NextRequest,

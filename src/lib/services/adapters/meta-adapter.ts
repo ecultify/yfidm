@@ -2,7 +2,7 @@ import type { Channel, Conversation, Message } from "@/lib/types";
 import type { ChannelAdapter } from "./channel-adapter";
 
 /**
- * Meta (Instagram + Facebook) adapter — UNIMPLEMENTED STUB.
+ * Meta (Instagram + Facebook) adapter - UNIMPLEMENTED STUB.
  *
  * Instagram Direct and Facebook Messenger are both served by the Meta Graph
  * API, so a single adapter handles both surfaces. Construct one per `channel`.

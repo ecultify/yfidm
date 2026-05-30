@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  *
  * Verifies the shared secret, maps the inbound payload to a normalized
  * {@link Message}, and ACKs with 200. Realtime fan-out to connected clients is
- * not wired yet — for now we log and rely on the RealInboxService poll.
+ * not wired yet - for now we log and rely on the RealInboxService poll.
  *
  * // TODO: push mapped messages to clients (SSE / WebSocket / Vercel Queue)
  * //       and invalidate the relevant React Query caches in real time.

@@ -18,7 +18,7 @@ import type {
 export type SortOrder = "newest" | "oldest" | "unread";
 
 interface InboxContextValue {
-  // Filter state — all dimensions combine with AND semantics, so e.g.
+  // Filter state - all dimensions combine with AND semantics, so e.g.
   // "LinkedIn + Unread + Assigned to me" is expressible at once.
   unread: boolean;
   setUnread: (v: boolean) => void;

@@ -13,7 +13,7 @@ import type {
  * The UI ONLY ever talks to an implementation of this interface (through the
  * React Query hooks in `lib/hooks`). To go live, swap the mock implementation
  * exported from `lib/services/index.ts` for one backed by real channel
- * adapters — no UI changes required.
+ * adapters - no UI changes required.
  */
 export interface InboxService {
   listConversations(filter?: ConversationFilter): Promise<Conversation[]>;

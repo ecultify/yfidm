@@ -17,7 +17,7 @@ import {
   TagEditor,
 } from "./conversation-actions";
 
-/** Removes duplicate-id messages (keeps last) — guards against the optimistic
+/** Removes duplicate-id messages (keeps last) - guards against the optimistic
  *  send + refetch race producing two bubbles with the same React key. */
 function dedupeById(messages: Message[]): Message[] {
   const byId = new Map<string, Message>();
@@ -66,7 +66,7 @@ export function ConversationThread({ conversationId }: { conversationId: string 
       autoMarked.current.add(conversationId);
       markRead.mutate(true);
     }
-    // markRead is intentionally omitted — its identity changes each render, and
+    // markRead is intentionally omitted - its identity changes each render, and
     // the autoMarked guard already makes this fire at most once per conversation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation, conversationId]);

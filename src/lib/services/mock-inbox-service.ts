@@ -24,7 +24,7 @@ const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${idCou
 /**
  * In-memory implementation of {@link InboxService}. All mutations persist for
  * the lifetime of the browser session. Swap this out for an adapter-backed
- * service to go live — see `lib/services/index.ts`.
+ * service to go live - see `lib/services/index.ts`.
  */
 export class MockInboxService implements InboxService {
   private conversations: Conversation[];
@@ -93,7 +93,7 @@ export class MockInboxService implements InboxService {
   }
 
   async sendMessage(conversationId: string, body: string): Promise<Message> {
-    // TODO: integrate <channel> API — route through the conversation's
+    // TODO: integrate <channel> API - route through the conversation's
     // ChannelAdapter.sendMessage and map the provider response.
     await delay(jitter(400, 800));
     const conv = this.conversations.find((c) => c.id === conversationId);

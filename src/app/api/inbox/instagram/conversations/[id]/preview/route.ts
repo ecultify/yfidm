@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * On-demand last-message preview for a single Instagram row, fetched lazily by
  * the client as the row scrolls into view (IntersectionObserver). The IG chat
  * list carries no message snippet, so this fetches only the latest message
- * (limit=1) — no N+1 storm on cold load. Unlike LinkedIn the contact name is
+ * (limit=1) - no N+1 storm on cold load. Unlike LinkedIn the contact name is
  * already known from the list, so only the preview is returned.
  *
  * `?sig=` is the row's known last-activity timestamp, used to key the preview

@@ -12,7 +12,7 @@ import { buildSeed } from "@/lib/services/mock-data";
  * flows through the shared app-store + mergeConversation, exactly like the real
  * path, so e.g. clearing the unread chip on open works in mock mode too.
  *
- * // TODO: this is read-only — mock sends are not persisted across refetches.
+ * // TODO: this is read-only - mock sends are not persisted across refetches.
  * //       Swap INBOX_INSTAGRAM_SOURCE=real for the full round-trip.
  */
 export function mockInstagramConversations(): Conversation[] {

@@ -81,7 +81,7 @@ export function ConversationList() {
           className="group flex h-9 flex-1 items-center gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70"
         >
           <Search className="size-4" />
-          <span>Search conversations…</span>
+          <span>Search conversations...</span>
           <kbd className="ml-auto hidden items-center gap-0.5 rounded border border-border/70 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:flex">
             <Command className="size-2.5" />K
           </kbd>
@@ -130,7 +130,7 @@ export function ConversationList() {
           <Input
             value={inbox.search}
             onChange={(e) => inbox.setSearch(e.target.value)}
-            placeholder="Filter by name, handle, message…"
+            placeholder="Filter by name, handle, message..."
             className="h-8 pl-8 text-sm"
           />
           {inbox.search && (

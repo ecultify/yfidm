@@ -4,7 +4,7 @@ import "server-only";
  * Thin server-side wrapper around the Unipile API.
  *
  * SERVER ONLY. The Unipile API key is a secret and must never reach the
- * browser — nothing here is `NEXT_PUBLIC_`, and this module is imported only by
+ * browser - nothing here is `NEXT_PUBLIC_`, and this module is imported only by
  * route handlers / server adapters. The client talks to our own /api/inbox/*
  * routes, never to Unipile directly.
  */
@@ -139,7 +139,7 @@ interface Paginated<T> {
 }
 
 /**
- * GET /chats?account_id=...&limit=50 — lists chats across the account's
+ * GET /chats?account_id=...&limit=50 - lists chats across the account's
  * mailboxes, following the `cursor` for pagination. Capped to keep the
  * prototype responsive. // TODO: stream / lazy-load instead of eager paging.
  */
@@ -160,7 +160,7 @@ export async function listChats(): Promise<UnipileChat[]> {
   return all;
 }
 
-/** GET /chats/{chatId} — a single chat (used for on-demand conversation loads). */
+/** GET /chats/{chatId} - a single chat (used for on-demand conversation loads). */
 export async function getChat(chatId: string): Promise<UnipileChat> {
   return request<UnipileChat>(`/chats/${encodeURIComponent(chatId)}`);
 }
@@ -174,7 +174,7 @@ export async function getMessages(chatId: string): Promise<UnipileMessage[]> {
 }
 
 /**
- * GET /users/{providerId}?account_id=... — full profile, INCLUDING the vanity
+ * GET /users/{providerId}?account_id=... - full profile, INCLUDING the vanity
  * public_identifier. ⚠️ Heavily rate-limited by LinkedIn (HTTP 429); prefer
  * {@link getChatAttendees} for listing. Kept for optional on-demand enrichment.
  */
@@ -185,7 +185,7 @@ export async function getUser(providerId: string): Promise<UnipileUser> {
 }
 
 /**
- * GET /chats/{chatId}/attendees — the chat participants (name, picture,
+ * GET /chats/{chatId}/attendees - the chat participants (name, picture,
  * profile URL). Unlike /users this is NOT subject to the profile-view rate
  * limit, so it's our primary contact-hydration source.
  */
@@ -200,7 +200,7 @@ export async function getChatAttendees(
 
 /**
  * POST /chats/{chatId}/messages as multipart/form-data with a `text` field.
- * (Do not set Content-Type manually — fetch adds the multipart boundary.)
+ * (Do not set Content-Type manually - fetch adds the multipart boundary.)
  */
 export async function sendMessage(
   chatId: string,
@@ -302,7 +302,7 @@ async function accountRequest<T>(
 }
 
 /**
- * GET /chats?account_id=IG&limit=N[&cursor=...] — one page of flat IG DM
+ * GET /chats?account_id=IG&limit=N[&cursor=...] - one page of flat IG DM
  * threads. Returns the items plus the top-level `cursor` for the next page so
  * the caller can do cursor-based paging instead of pulling the whole inbox.
  */
@@ -348,7 +348,7 @@ export async function getMessagesForAccount(
 }
 
 /**
- * GET /chats/{chatId}/attendees for a specific account — used to hydrate the
+ * GET /chats/{chatId}/attendees for a specific account - used to hydrate the
  * Instagram contact's avatar + profile URL (the chat list carries the name but
  * not the picture). Not subject to the profile-view rate limit.
  */

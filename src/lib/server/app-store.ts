@@ -205,6 +205,33 @@ export async function listActivity(
   }));
 }
 
+export interface GlobalActivityEntry extends ActivityEntry {
+  conversationId: string;
+}
+
+interface GlobalActivityRow extends ActivityRow {
+  conversation_id: string;
+}
+
+/** Recent activity across ALL conversations (admin analytics), newest first. */
+export async function listAllActivity(limit = 200): Promise<GlobalActivityEntry[]> {
+  const rows = await query<GlobalActivityRow>(
+    `SELECT id, conversation_id, actor_id, actor_name, action, detail, created_at
+       FROM activity_log
+      ORDER BY created_at DESC, id DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    conversationId: r.conversation_id,
+    actorId: r.actor_id,
+    actorName: r.actor_name,
+    action: r.action,
+    detail: r.detail,
+    createdAt: toIso(r.created_at),
+  }));
+}
+
 // ---- merge (read path) ----
 
 interface StateRow {

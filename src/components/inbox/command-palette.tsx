@@ -56,7 +56,7 @@ export function CommandPalette() {
       description="Search conversations and jump to filters"
     >
       <Command>
-        <CommandInput placeholder="Search conversations, contacts, or jump to…" />
+        <CommandInput placeholder="Search conversations, contacts, or jump to..." />
         <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 

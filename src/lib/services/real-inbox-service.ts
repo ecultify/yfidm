@@ -17,7 +17,7 @@ import type {
  * - Instagram -> our internal /api/inbox/instagram/* Route Handlers (Unipile
  *                server-side; gated by INBOX_INSTAGRAM_SOURCE, mock fallback
  *                served by those same routes).
- * - Facebook  -> MockInboxService (its adapter isn't built — stays mock).
+ * - Facebook  -> MockInboxService (its adapter isn't built - stays mock).
  *
  * The browser NEVER touches Unipile directly. This is a CLIENT-SAFE module: it
  * only fetches our own API routes and delegates Facebook to the mock service.
@@ -29,7 +29,7 @@ export class RealInboxService implements InboxService {
   /**
    * id -> channel registry, populated whenever we list/fetch conversations.
    * Real LinkedIn and Instagram ids are both opaque Unipile chat ids, so the id
-   * alone can't tell them apart — this map is how getMessages/sendMessage route
+   * alone can't tell them apart - this map is how getMessages/sendMessage route
    * a bare id to the right backend. Falls back conservatively for unseen ids.
    */
   private readonly channelById = new Map<string, Channel>();
@@ -43,7 +43,7 @@ export class RealInboxService implements InboxService {
     const known = this.channelById.get(id);
     if (known) return known;
     // Unseen id: mock ids are `conv-*` (route to the mock service via Facebook);
-    // any other id is a real Unipile chat — default to LinkedIn to preserve the
+    // any other id is a real Unipile chat - default to LinkedIn to preserve the
     // original behaviour until the list populates the registry.
     return id.startsWith("conv-") ? "facebook" : "linkedin";
   }
@@ -98,7 +98,7 @@ export class RealInboxService implements InboxService {
       );
       return this.remember(convs);
     } catch (e) {
-      // A LinkedIn/Unipile outage must not blank the whole inbox — IG/FB stay.
+      // A LinkedIn/Unipile outage must not blank the whole inbox - IG/FB stay.
       console.error("[inbox] LinkedIn conversations failed:", e);
       // TODO: surface a partial-failure indicator in the UI.
       return [];
@@ -124,7 +124,7 @@ export class RealInboxService implements InboxService {
   private async fetchMockConversations(
     _filter?: ConversationFilter,
   ): Promise<Conversation[]> {
-    // Facebook / Messenger is NOT connected yet — no mock data is surfaced. The
+    // Facebook / Messenger is NOT connected yet - no mock data is surfaced. The
     // UI shows a "not connected" note when the Facebook channel is selected.
     // (LinkedIn + Instagram are the real, wired channels.)
     void _filter;
@@ -242,7 +242,7 @@ export class RealInboxService implements InboxService {
   // ---- realtime ----
 
   subscribe(onInbound: (m: Message) => void): () => void {
-    // NOTE: the simulated/mock inbound notifications have been removed — only
+    // NOTE: the simulated/mock inbound notifications have been removed - only
     // REAL inbound messages (detected by polling LinkedIn + Instagram) surface.
     // TODO: replace these polls with the webhook-driven realtime stream
     //       (app/api/inbox/webhook -> SSE/WebSocket/Queue fan-out).
@@ -264,7 +264,7 @@ export class RealInboxService implements InboxService {
   /**
    * Generic conversation-list poller: detects a changed last-activity timestamp
    * per conversation and emits the latest inbound message (deduped by id). Used
-   * for both LinkedIn and Instagram. Reconciliation only — the webhook is the
+   * for both LinkedIn and Instagram. Reconciliation only - the webhook is the
    * intended real-time source.
    */
   private pollChannel(

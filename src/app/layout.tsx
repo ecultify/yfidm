@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Unibox — Unified Social Inbox",
+  title: "Unibox - Unified Social Inbox",
   description:
     "One inbox for Instagram, Facebook and LinkedIn DMs. Read, assign and reply across every channel from a single screen.",
 };

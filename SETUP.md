@@ -109,9 +109,12 @@ build artifacts are pushed. `.env.example` *is* committed as a template.
    - **Startup file / run command:** `npm start` (which runs `next start`).
    - **Build step:** run `npm install && npm run build` once (via the panel's
      terminal/SSH or an `npm run build` task) before starting.
-3. **Environment variables:** add every key from `.env.example` (Unipile + DB)
-   in the Node app's **Environment Variables** section. `DB_HOST` is usually
-   `localhost` on Hostinger shared hosting.
+3. **Environment variables:** add every key from `.env.example` (Unipile + DB +
+   `APP_URL`) in the Node app's **Environment Variables** section. Use
+   `DB_HOST=127.0.0.1` (forces IPv4 — `localhost` can resolve to IPv6 `::1` and
+   fail the grant). Set `APP_URL` to your real domain (e.g.
+   `https://your-site.hostingersite.com`) so invite links point at the site and
+   not the internal `0.0.0.0:3000` address. **Restart the app after any env change.**
 4. **Port:** Hostinger injects a `PORT`; `next start` honours it automatically.
 5. **Webhook (optional realtime):** point your Unipile webhook at
    `https://<your-domain>/api/inbox/webhook?secret=<UNIPILE_WEBHOOK_SECRET>`.

@@ -76,7 +76,7 @@ export default function InvitePage() {
         </div>
 
         {status === "loading" && (
-          <p className="text-center text-sm text-muted-foreground">Checking your invite…</p>
+          <p className="text-center text-sm text-muted-foreground">Checking your invite...</p>
         )}
 
         {status === "invalid" && (
@@ -92,7 +92,7 @@ export default function InvitePage() {
 
         {status === "done" && (
           <p className="text-center text-sm text-green-600">
-            Password set! Redirecting you to sign in…
+            Password set! Redirecting you to sign in...
           </p>
         )}
 
@@ -131,7 +131,7 @@ export default function InvitePage() {
               </p>
             )}
             <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? "Saving…" : "Set password & continue"}
+              {saving ? "Saving..." : "Set password & continue"}
             </Button>
           </form>
         )}

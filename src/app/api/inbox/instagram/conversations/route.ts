@@ -20,7 +20,7 @@ function isReal(): boolean {
  * `x-next-cursor` header (the body stays a plain Conversation[]).
  *
  * App-owned state (status / assignee / tags / read) is merged from MySQL, then
- * the ConversationFilter query params are applied — the same pipeline LinkedIn
+ * the ConversationFilter query params are applied - the same pipeline LinkedIn
  * uses, so IG honours All / Unread / Assigned-to-me / Has-notes.
  */
 export async function GET(req: NextRequest) {

@@ -217,14 +217,17 @@ export function LeftRail() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Signed in as {me?.name ?? "…"}</DropdownMenuLabel>
+            <DropdownMenuLabel>Signed in as {me?.name ?? "..."}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => router.push("/team")}>
+            <DropdownMenuItem onSelect={() => router.push("/profile")}>
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push("/profile")}>
               Change password
             </DropdownMenuItem>
             {me?.role === "admin" && (
-              <DropdownMenuItem onSelect={() => router.push("/team")}>
-                Manage team
+              <DropdownMenuItem onSelect={() => router.push("/profile")}>
+                Team and analytics
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

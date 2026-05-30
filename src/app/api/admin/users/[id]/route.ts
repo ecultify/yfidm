@@ -5,6 +5,7 @@ import {
   regenerateInvite,
   requireAdmin,
 } from "@/lib/server/auth";
+import { publicOrigin } from "@/lib/server/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ function handleError(e: unknown) {
   return NextResponse.json({ error: message }, { status: 500 });
 }
 
-/** DELETE — remove a user (admin only). Admins cannot delete themselves. */
+/** DELETE - remove a user (admin only). Admins cannot delete themselves. */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,7 +39,7 @@ export async function DELETE(
   }
 }
 
-/** POST — regenerate an invite link for a still-pending user (admin only). */
+/** POST - regenerate an invite link for a still-pending user (admin only). */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -47,7 +48,7 @@ export async function POST(
     const admin = await requireAdmin();
     const { id } = await params;
     const token = await regenerateInvite(id, admin.id);
-    const inviteUrl = new URL(`/invite/${token}`, req.nextUrl.origin).toString();
+    const inviteUrl = `${publicOrigin(req)}/invite/${token}`;
     return NextResponse.json({ inviteUrl });
   } catch (e) {
     return handleError(e);

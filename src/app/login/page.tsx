@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircleMore } from "lucide-react";
+import { Loader2, MessageCircleMore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,16 +30,28 @@ export default function LoginPage() {
       const data = (await res.json()) as { error?: string };
       if (!res.ok) {
         setError(data.error ?? "Login failed");
+        setLoading(false);
         return;
       }
+      // Keep a full-screen loader up while the dashboard loads, so there is no
+      // blank flash between sign-in and the inbox appearing.
+      setRedirecting(true);
       router.replace("/");
       router.refresh();
     } catch {
-      setError("Something went wrong. Try again.");
-    } finally {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
+
+  if (redirecting) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-muted/30">
+        <Loader2 className="size-7 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your inbox</p>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
@@ -96,7 +109,7 @@ export default function LoginPage() {
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
       </div>

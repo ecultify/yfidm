@@ -17,7 +17,7 @@ import {
 
 /**
  * Instagram channel adapter backed by Unipile (same provider as LinkedIn).
- * SERVER ONLY — imported exclusively by the route handlers under
+ * SERVER ONLY - imported exclusively by the route handlers under
  * app/api/inbox/instagram/. Translates Unipile's INSTAGRAM payloads into our
  * normalized domain types. Field mappings verified against the live API shape
  * documented in AGENTS.md.
@@ -26,12 +26,12 @@ import {
  * stays byte-for-byte):
  *  - The chat object already carries the contact `name`, so there is NO
  *    per-contact getUser()/attendee hydration on the list path (no N+1).
- *  - There is no mailbox concept — chats live in a single INBOX folder, so no
+ *  - There is no mailbox concept - chats live in a single INBOX folder, so no
  *    per-mailbox filtering.
  *  - There is no subject/topic, so Conversation.tags starts empty.
  *
  * App-owned workflow state (status, assignee, tags, notes, read overrides) is
- * merged in by the route via lib/server/app-store.ts — exactly like LinkedIn.
+ * merged in by the route via lib/server/app-store.ts - exactly like LinkedIn.
  */
 
 /** Display name attributed to outbound (our) messages. */
@@ -231,9 +231,9 @@ export class InstagramAdapter implements ChannelAdapter {
 
   /**
    * On-demand hydration of a single row, called lazily as it scrolls into view:
-   * the contact's avatar/@handle (from the attendees endpoint — the chat list
+   * the contact's avatar/@handle (from the attendees endpoint - the chat list
    * has the name but no picture) AND the last-message preview (latest message
-   * only, limit=1 — no N+1 storm). `sig` keys the preview cache so it refreshes
+   * only, limit=1 - no N+1 storm). `sig` keys the preview cache so it refreshes
    * when a newer message arrives; resolved contacts are cached process-wide.
    */
   async fetchRowData(
@@ -276,7 +276,7 @@ export class InstagramAdapter implements ChannelAdapter {
     const account = instagramAccount();
     const messages = await getMessagesForAccount(account, externalConversationId);
 
-    // Dedupe by id — webhook + poll + optimistic paths can momentarily surface
+    // Dedupe by id - webhook + poll + optimistic paths can momentarily surface
     // the same message twice; keep the last (freshest delivery state).
     const byId = new Map<string, Message>();
     for (const m of messages) {
@@ -294,7 +294,7 @@ export class InstagramAdapter implements ChannelAdapter {
     // TODO: verify send-as-page identity against a self-created test thread.
     // Do NOT test-send into real inbound threads.
     //
-    // Meta enforces a 24h Customer Service Window — a send outside it is
+    // Meta enforces a 24h Customer Service Window - a send outside it is
     // rejected upstream. accountRequest surfaces that as a UnipileError, which
     // the route turns into a clean { error, status }; the client then marks the
     // optimistic bubble 'failed' and toasts. The composer also pre-disables send
