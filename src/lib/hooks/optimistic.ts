@@ -37,5 +37,9 @@ export function patchConversationEverywhere(
 
 export function invalidateConversations(qc: QueryClient, id?: string) {
   qc.invalidateQueries({ queryKey: ["conversations"] });
-  if (id) qc.invalidateQueries({ queryKey: queryKeys.conversation(id) });
+  if (id) {
+    qc.invalidateQueries({ queryKey: queryKeys.conversation(id) });
+    // The action was just logged server-side — refresh the activity timeline.
+    qc.invalidateQueries({ queryKey: queryKeys.activity(id) });
+  }
 }

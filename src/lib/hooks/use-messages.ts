@@ -85,6 +85,8 @@ export function useSendMessage(conversationId: string) {
 
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["conversations"] });
+      // A reply was logged to the activity timeline server-side.
+      qc.invalidateQueries({ queryKey: queryKeys.activity(conversationId) });
     },
   });
 }

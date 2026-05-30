@@ -166,6 +166,45 @@ export async function logActivity(
   }
 }
 
+export interface ActivityEntry {
+  id: number;
+  actorId: string | null;
+  actorName: string;
+  action: string;
+  detail: string;
+  createdAt: string;
+}
+
+interface ActivityRow {
+  id: number;
+  actor_id: string | null;
+  actor_name: string;
+  action: string;
+  detail: string;
+  created_at: string;
+}
+
+/** Recent activity for a conversation, newest first. */
+export async function listActivity(
+  id: string,
+  limit = 40,
+): Promise<ActivityEntry[]> {
+  const rows = await query<ActivityRow>(
+    `SELECT id, actor_id, actor_name, action, detail, created_at
+       FROM activity_log WHERE conversation_id = ?
+      ORDER BY created_at DESC, id DESC LIMIT ?`,
+    [id, limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    actorId: r.actor_id,
+    actorName: r.actor_name,
+    action: r.action,
+    detail: r.detail,
+    createdAt: toIso(r.created_at),
+  }));
+}
+
 // ---- merge (read path) ----
 
 interface StateRow {

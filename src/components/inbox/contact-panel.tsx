@@ -1,17 +1,52 @@
 "use client";
 
-import { ExternalLink, Plus, StickyNote, Tag as TagIcon } from "lucide-react";
+import {
+  Activity as ActivityIcon,
+  ExternalLink,
+  Plus,
+  StickyNote,
+  Tag as TagIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CHANNELS } from "@/lib/channel";
 import { messageTime } from "@/lib/format";
-import { useConversation, useNotes, useTags } from "@/lib/hooks";
+import {
+  useActivity,
+  useAgents,
+  useConversation,
+  useNotes,
+  useTags,
+  type ActivityEntry,
+} from "@/lib/hooks";
+import type { Agent } from "@/lib/types";
 import { ChannelAvatar } from "./channel-avatar";
 import { AgentAvatar } from "./agent-avatar";
 import { TagPill } from "./tag-pill";
 import { AssignDropdown, StatusDropdown, TagEditor } from "./conversation-actions";
-import { useAgents } from "@/lib/hooks";
+
+/** Turns a raw activity row into a human sentence. */
+function describeActivity(a: ActivityEntry, agents: Agent[]): string {
+  switch (a.action) {
+    case "reply":
+      return "replied to the conversation";
+    case "status_change":
+      return `set status to ${a.detail}`;
+    case "assign":
+      return a.detail === "unassigned"
+        ? "unassigned this conversation"
+        : `assigned to ${agents.find((x) => x.id === a.detail)?.name ?? "a teammate"}`;
+    case "tag_add":
+      return `added tag “${a.detail}”`;
+    case "tag_remove":
+      return `removed tag “${a.detail}”`;
+    case "note":
+      return "added an internal note";
+    default:
+      return a.action;
+  }
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -28,6 +63,7 @@ export function ContactPanel({ conversationId }: { conversationId: string }) {
   const { data: conversation } = useConversation(conversationId);
   const { data: notes = [] } = useNotes(conversationId);
   const { data: agents = [] } = useAgents();
+  const { data: activity = [] } = useActivity(conversationId);
   const { removeTag } = useTags(conversationId);
 
   if (!conversation) return null;
@@ -153,6 +189,37 @@ export function ContactPanel({ conversationId }: { conversationId: string }) {
                   </li>
                 );
               })}
+            </ul>
+          )}
+        </Field>
+
+        <Separator />
+
+        {/* Activity timeline — who did what, shared across the team */}
+        <Field label={`Activity (${activity.length})`}>
+          {activity.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-4 text-xs text-muted-foreground">
+              <ActivityIcon className="size-4 shrink-0" />
+              Assignments, replies, status and tag changes show up here.
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {activity.map((a) => (
+                <li key={a.id} className="flex gap-2.5">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] leading-snug text-foreground/90">
+                      <span className="font-medium">{a.actorName || "Someone"}</span>{" "}
+                      <span className="text-muted-foreground">
+                        {describeActivity(a, agents)}
+                      </span>
+                    </p>
+                    <span className="text-[10.5px] text-muted-foreground/80">
+                      {messageTime(a.createdAt)}
+                    </span>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </Field>

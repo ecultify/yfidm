@@ -11,4 +11,5 @@ export const queryKeys = {
   messages: (conversationId: string) => ["messages", conversationId] as const,
   agents: () => ["agents"] as const,
   notes: (conversationId: string) => ["notes", conversationId] as const,
+  activity: (conversationId: string) => ["activity", conversationId] as const,
 };

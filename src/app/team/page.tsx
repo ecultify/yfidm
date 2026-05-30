@@ -6,6 +6,7 @@ import { ArrowLeft, Trash2, UserPlus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { ManagedUser, UserRole } from "@/lib/auth/types";
@@ -94,15 +95,15 @@ function ChangePassword() {
     <form onSubmit={submit} className="grid gap-3 sm:max-w-md">
       <div className="space-y-1.5">
         <Label htmlFor="current">Current password</Label>
-        <Input id="current" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+        <PasswordInput id="current" value={current} onChange={(e) => setCurrent(e.target.value)} required />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="new">New password</Label>
-        <Input id="new" type="password" value={next} onChange={(e) => setNext(e.target.value)} required />
+        <PasswordInput id="new" value={next} onChange={(e) => setNext(e.target.value)} required />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="confirm">Confirm new password</Label>
-        <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+        <PasswordInput id="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
       </div>
       <div>
         <Button type="submit" disabled={saving} size="sm">

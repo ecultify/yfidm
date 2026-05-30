@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { MessageCircleMore } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 export default function InvitePage() {
@@ -106,9 +106,8 @@ export default function InvitePage() {
             </p>
             <div className="space-y-1.5">
               <Label htmlFor="password">Choose a password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={password}
@@ -118,9 +117,8 @@ export default function InvitePage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={confirm}
