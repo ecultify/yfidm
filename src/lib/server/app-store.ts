@@ -118,7 +118,9 @@ export async function addNote(
   body: string,
   author: Actor,
 ): Promise<InternalNote> {
-  const noteId = `note-${crypto.randomUUID()}`;
+  // A bare UUID is 36 chars and fits notes.id (VARCHAR). Do NOT prefix it —
+  // "note-" + uuid is 41 chars and overflows a VARCHAR(40) column.
+  const noteId = crypto.randomUUID();
   await execute(
     `INSERT INTO notes (id, conversation_id, author_id, author_name, body)
      VALUES (?, ?, ?, ?, ?)`,

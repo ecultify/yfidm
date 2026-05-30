@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS conversation_tags (
 --  Internal notes — team-only, never sent to the contact.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notes (
-  id              VARCHAR(40)  NOT NULL,
+  id              VARCHAR(64)  NOT NULL,
   conversation_id VARCHAR(191) NOT NULL,
   author_id       VARCHAR(36)  NULL,
   author_name     VARCHAR(120) NOT NULL,
