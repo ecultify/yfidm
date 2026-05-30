@@ -103,12 +103,20 @@ build artifacts are pushed. `.env.example` *is* committed as a template.
 
 1. **Database:** hPanel → Databases → create a MySQL DB + user. Import
    `db/schema.sql`. Note the host/user/password/name.
-2. **Node app:** hPanel → Advanced → **Node.js** (or "Setup Node.js App"):
+2. **Node app:** hPanel → your Node.js app:
    - **Application root:** your repo folder (deploy via Git or upload).
    - **Node version:** 20+.
-   - **Startup file / run command:** `npm start` (which runs `next start`).
-   - **Build step:** run `npm install && npm run build` once (via the panel's
-     terminal/SSH or an `npm run build` task) before starting.
+   - **Build command:** `npm install && npm run build`. The build produces a
+     slim **standalone** server at `.next/standalone/server.js` (config
+     `output: "standalone"`) and `postbuild` copies the static assets + the
+     runtime DB packages into it. This is the key fix for 503 / restart loops:
+     it uses ~45 MB instead of loading the full ~600 MB `node_modules`.
+   - **Start command:** `npm start` (now runs `node .next/standalone/server.js`).
+     The standalone server listens on the platform's `PORT` automatically.
+   - **Instances / workers:** set to **1**. Two instances both bind the same
+     port (`EADDRINUSE`) and crash-loop — that is what produced the repeated
+     `✓ Ready` and the 503s.
+   - Optionally set `HOSTNAME=0.0.0.0` so it binds all interfaces.
 3. **Environment variables:** add every key from `.env.example` (Unipile + DB +
    `APP_URL`) in the Node app's **Environment Variables** section. Use
    `DB_HOST=127.0.0.1` (forces IPv4 — `localhost` can resolve to IPv6 `::1` and
