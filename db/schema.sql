@@ -129,6 +129,68 @@ CREATE TABLE IF NOT EXISTS activity_log (
   KEY idx_activity_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+--  Canned responses — reusable reply templates for the Freshdesk support desk.
+--  Stored in OUR database (NOT Freshdesk): its v2 canned-response endpoints
+--  can't reliably list saved responses and have folder-ID bugs. Scoped per
+--  agent via owner_id, so each agent manages their own templates.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS canned_responses (
+  id          VARCHAR(36)  NOT NULL,
+  owner_id    VARCHAR(36)  NOT NULL,
+  title       VARCHAR(190) NOT NULL,
+  body        TEXT         NOT NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_canned_owner (owner_id),
+  CONSTRAINT fk_canned_owner FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+--  Freshdesk ticket activity — our own audit trail of what agents do on the
+--  support desk: who opened which ticket, who replied (and the text), who left
+--  a note, and every status change (single or part of a bulk update). Freshdesk
+--  remains the source of truth for tickets; this records OUR side of the work.
+--  actor_id is stored as a plain value (no FK) so history survives user
+--  deletion, mirroring activity_log. ticket_id is the numeric Freshdesk id.
+--  action: 'viewed' | 'reply' | 'note' | 'status_change' | 'bulk_status'.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS support_ticket_activity (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  actor_id    VARCHAR(36)  NULL,
+  actor_name  VARCHAR(120) NOT NULL DEFAULT '',
+  ticket_id   BIGINT       NOT NULL,
+  action      VARCHAR(40)  NOT NULL,
+  detail      TEXT         NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_support_activity_ticket (ticket_id),
+  KEY idx_support_activity_actor (actor_id),
+  KEY idx_support_activity_time (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+--  Admin audit — sensitive account actions performed by admins: password
+--  resets, role changes (agent <-> admin), and status changes. Records the
+--  acting admin and the target user. No FKs on the id columns so the trail
+--  outlives deleted users.
+--  action: 'password_reset' | 'role_change' | 'status_change'.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  actor_id       VARCHAR(36)  NULL,
+  actor_name     VARCHAR(120) NOT NULL DEFAULT '',
+  target_user_id VARCHAR(36)  NULL,
+  target_email   VARCHAR(190) NOT NULL DEFAULT '',
+  action         VARCHAR(40)  NOT NULL,
+  detail         VARCHAR(400) NOT NULL DEFAULT '',
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_admin_audit_target (target_user_id),
+  KEY idx_admin_audit_time (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================

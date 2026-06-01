@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   Inbox,
   Mail,
@@ -92,6 +93,15 @@ export function LeftRail() {
   const currentId = useCurrentAgentId();
   const me = useCurrentUser();
 
+  // Sidebar items behave like single-select navigation: clicking one shows just
+  // that view and clears whatever else was active. Combining filters (e.g.
+  // Unread + Instagram) is done deliberately via the filter controls in the
+  // list header, not by stacking sidebar clicks.
+  const showOnly = (apply: () => void) => {
+    inbox.resetFilters();
+    apply();
+  };
+
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
@@ -127,24 +137,56 @@ export function LeftRail() {
           />
           <RailButton
             active={inbox.unread}
-            onClick={() => inbox.setUnread(!inbox.unread)}
+            onClick={() =>
+              inbox.unread
+                ? inbox.resetFilters()
+                : showOnly(() => inbox.setUnread(true))
+            }
             icon={<Mail className="size-4" />}
             label="Unread"
             count={unreadTotal}
           />
           <RailButton
             active={inbox.mine}
-            onClick={() => inbox.setMine(!inbox.mine)}
+            onClick={() =>
+              inbox.mine
+                ? inbox.resetFilters()
+                : showOnly(() => inbox.setMine(true))
+            }
             icon={<UserCheck className="size-4" />}
             label="Assigned to me"
             count={mineTotal}
           />
           <RailButton
             active={inbox.notes}
-            onClick={() => inbox.setNotes(!inbox.notes)}
+            onClick={() =>
+              inbox.notes
+                ? inbox.resetFilters()
+                : showOnly(() => inbox.setNotes(true))
+            }
             icon={<AtSign className="size-4" />}
             label="Mentions & notes"
             count={withNotes.length}
+          />
+        </div>
+
+        {/* Support desk (Freshdesk-backed, separate from the DM inbox) */}
+        <SectionLabel>Support</SectionLabel>
+        <div className="space-y-0.5">
+          <RailButton
+            active={false}
+            onClick={() => router.push("/support")}
+            accent={
+              <Image
+                src="/freshdesk.png"
+                alt=""
+                width={16}
+                height={16}
+                className="size-4"
+              />
+            }
+            icon={null}
+            label="Freshdesk"
           />
         </div>
 
@@ -156,7 +198,9 @@ export function LeftRail() {
               key={ch.id}
               active={inbox.channel === ch.id}
               onClick={() =>
-                inbox.setChannel(inbox.channel === ch.id ? null : ch.id)
+                inbox.channel === ch.id
+                  ? inbox.resetFilters()
+                  : showOnly(() => inbox.setChannel(ch.id))
               }
               accent={
                 <span
@@ -184,7 +228,11 @@ export function LeftRail() {
               <RailButton
                 key={s}
                 active={inbox.status === s}
-                onClick={() => inbox.setStatus(inbox.status === s ? null : s)}
+                onClick={() =>
+                  inbox.status === s
+                    ? inbox.resetFilters()
+                    : showOnly(() => inbox.setStatus(s))
+                }
                 accent={
                   <span className={cn("size-2 rounded-full", meta.dot)} />
                 }

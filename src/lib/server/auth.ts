@@ -63,6 +63,26 @@ function toManagedUser(u: UserRow): ManagedUser {
   };
 }
 
+// ---- dev-only auth bypass (localhost testing) ----
+
+/**
+ * When DISABLE_AUTH=true, the login gate is skipped and every request is
+ * treated as a built-in admin "Dev User". HARD-GATED to non-production so a
+ * stray flag can never open the app up on a real deploy (Hostinger runs with
+ * NODE_ENV=production). The proxy mirrors this same check. Remove the env var
+ * to restore normal login.
+ */
+export const AUTH_DISABLED =
+  process.env.DISABLE_AUTH === "true" && process.env.NODE_ENV !== "production";
+
+const DEV_USER: SessionUser = {
+  id: "dev-user",
+  name: "Dev User",
+  email: "dev@localhost",
+  role: "admin",
+  avatarUrl: "",
+};
+
 // ---- sessions ----
 
 /** Creates a session row and sets the HTTP-only cookie. */
@@ -84,6 +104,8 @@ export async function createSession(userId: string): Promise<void> {
 
 /** Reads + validates the session cookie, returning the active user or null. */
 export async function getSessionUser(): Promise<SessionUser | null> {
+  if (AUTH_DISABLED) return DEV_USER;
+
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -269,4 +291,43 @@ export async function regenerateInvite(
 
 export async function deleteUser(userId: string): Promise<void> {
   await execute("DELETE FROM users WHERE id = ?", [userId]);
+}
+
+/** A readable one-off password for an admin to share with a user (12 chars). */
+export function generatePassword(): string {
+  return crypto.randomBytes(9).toString("base64url");
+}
+
+/**
+ * Admin-initiated password reset: sets a fresh random password (and activates
+ * the account if it was still 'invited') and returns the plaintext ONCE so the
+ * admin can hand it over. The plaintext is never stored. Returns null if the
+ * user doesn't exist.
+ */
+export async function adminResetPassword(
+  userId: string,
+): Promise<{ user: ManagedUser; password: string } | null> {
+  const row = await queryOne<UserRow>("SELECT * FROM users WHERE id = ?", [userId]);
+  if (!row) return null;
+  const password = generatePassword();
+  await execute(
+    "UPDATE users SET password_hash = ?, status = 'active' WHERE id = ?",
+    [await hashPassword(password), userId],
+  );
+  const updated = await queryOne<UserRow>("SELECT * FROM users WHERE id = ?", [
+    userId,
+  ]);
+  return { user: toManagedUser(updated as UserRow), password };
+}
+
+/** Changes a user's role (agent <-> admin). Returns the updated user, or null. */
+export async function setUserRole(
+  userId: string,
+  role: UserRole,
+): Promise<ManagedUser | null> {
+  await execute("UPDATE users SET role = ? WHERE id = ?", [role, userId]);
+  const updated = await queryOne<UserRow>("SELECT * FROM users WHERE id = ?", [
+    userId,
+  ]);
+  return updated ? toManagedUser(updated) : null;
 }

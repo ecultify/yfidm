@@ -15,6 +15,16 @@ const PUBLIC_PREFIXES = ["/login", "/invite", "/api/auth/"];
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Dev-only: skip the auth gate entirely for localhost testing. Hard-gated to
+  // non-production so a stray flag can't disable auth on a real deploy. Mirrors
+  // AUTH_DISABLED in @/lib/server/auth.
+  if (
+    process.env.DISABLE_AUTH === "true" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return NextResponse.next();
+  }
+
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) {
     return NextResponse.next();
   }

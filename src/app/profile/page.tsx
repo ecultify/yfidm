@@ -277,6 +277,44 @@ function TeamTab({
     copy(data.inviteUrl);
   };
 
+  const me = useCurrentUser();
+  const [resetResult, setResetResult] = useState<{
+    name: string;
+    email: string;
+    password: string;
+  } | null>(null);
+
+  const resetPassword = async (u: ManagedUser) => {
+    if (
+      !window.confirm(
+        `Reset ${u.name}'s password? Their current password stops working immediately.`,
+      )
+    )
+      return;
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resetPassword: true }),
+    });
+    const data = (await res.json()) as { password?: string; error?: string };
+    if (!res.ok || !data.password)
+      return void toast.error(data.error ?? "Could not reset password");
+    setResetResult({ name: u.name, email: u.email, password: data.password });
+  };
+
+  const changeRole = async (u: ManagedUser, role: UserRole) => {
+    if (role === u.role) return;
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) return void toast.error(data.error ?? "Could not change role");
+    toast.success(`${u.name} is now ${role}`);
+    reload();
+  };
+
   return (
     <div className="space-y-5">
       <Section
@@ -295,17 +333,37 @@ function TeamTab({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {u.name}
-                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    {u.role}
-                  </span>
                   {u.status !== "active" && (
-                    <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                       {u.status}
                     </span>
                   )}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{u.email}</p>
               </div>
+              {me?.id === u.id ? (
+                <span className="rounded bg-muted px-2 py-1 text-[10px] font-medium uppercase text-muted-foreground">
+                  {u.role}
+                </span>
+              ) : (
+                <Toggle
+                  value={u.role}
+                  onChange={(r) => changeRole(u, r)}
+                  options={[
+                    { value: "agent", label: "Agent" },
+                    { value: "admin", label: "Admin" },
+                  ]}
+                />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => resetPassword(u)}
+              >
+                <KeyRound className="size-3.5" />
+                Reset password
+              </Button>
               {u.status === "invited" && (
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => regenerate(u)}>
                   <RefreshCw className="size-3.5" />
@@ -343,6 +401,37 @@ function TeamTab({
             <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
               {deleting ? "Removing" : "Remove"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={resetResult !== null}
+        onOpenChange={(o) => !o && setResetResult(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New password for {resetResult?.name}</DialogTitle>
+            <DialogDescription>
+              Share this with {resetResult?.email}. It is shown only once. They
+              can change it after signing in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm">
+            <span className="flex-1 break-all">{resetResult?.password}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(resetResult?.password ?? "");
+                toast.success("Password copied");
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setResetResult(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
