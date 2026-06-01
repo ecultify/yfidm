@@ -719,11 +719,14 @@ function ConversationBubble({ c }: { c: TicketConversation }) {
 function textToHtml(text: string): string {
   const escape = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // <br><br> for paragraph breaks, not <p>: Freshdesk's email template zeroes
+  // <p> margins, collapsing paragraph spacing. <br><br> renders a real gap.
   return text
+    .replace(/\r\n/g, "\n")
     .trim()
     .split(/\n{2,}/)
-    .map((para) => `<p>${escape(para).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+    .map((para) => escape(para).replace(/\n/g, "<br>"))
+    .join("<br><br>");
 }
 
 function CannedManager({

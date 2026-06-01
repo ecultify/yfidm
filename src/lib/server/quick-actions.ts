@@ -118,9 +118,12 @@ function getAction(key: string): QuickAction {
 }
 
 /**
- * Turns the exact reply text into HTML, preserving paragraph structure: blank
- * lines become <p> paragraphs, single line breaks become <br>. HTML-special
- * characters are escaped. The wording itself is never altered.
+ * Turns the exact reply text into email-safe HTML, preserving paragraph
+ * structure. We use <br><br> for blank-line paragraph breaks and a single <br>
+ * for in-paragraph breaks, NOT <p> tags: Freshdesk's outbound email template
+ * zeroes out <p> margins, which collapses paragraph spacing. <br><br> renders a
+ * real blank line in every mail client. HTML-special characters are escaped;
+ * the wording itself is never altered.
  */
 export function textToHtml(text: string): string {
   const escape = (s: string) =>
@@ -129,8 +132,8 @@ export function textToHtml(text: string): string {
     .replace(/\r\n/g, "\n")
     .trim()
     .split(/\n{2,}/)
-    .map((para) => `<p>${escape(para).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+    .map((para) => escape(para).replace(/\n/g, "<br>"))
+    .join("<br><br>");
 }
 
 /** Raised when a quick action fails, naming which step failed. */
