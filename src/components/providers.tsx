@@ -24,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
+  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
@@ -34,10 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         <TooltipProvider delayDuration={200}>
           {children}
-          {/* No richColors: bright green/red toasts clash with the neutral
-              shadcn palette. We use the themed popover surface (set in
-              ui/sonner.tsx) with a small monochrome status icon instead. */}
-          <Toaster position="bottom-right" closeButton />
+          <Toaster position="bottom-right" richColors closeButton />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

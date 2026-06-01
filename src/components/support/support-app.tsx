@@ -13,6 +13,7 @@ import {
   Mail,
   Pencil,
   Phone,
+  Play,
   Plus,
   RefreshCw,
   Send,
@@ -56,6 +57,8 @@ import {
   useDeleteCanned,
   useInfiniteTickets,
   useReplyToTicket,
+  useRunScenario,
+  useScenarios,
   useTicket,
   useTicketCount,
   useUpdateCanned,
@@ -63,6 +66,7 @@ import {
   type BulkStatusResult,
   type CannedResponse,
   type Labeled,
+  type ScenarioSummary,
   type StatusOption,
   type TicketConversation,
   type TicketSummary,
@@ -302,6 +306,25 @@ function TicketList({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [results, setResults] = useState<BulkStatusResult | null>(null);
 
+  // Tab + date filter. "Open" = no agent reply yet (needs a response);
+  // "Replied" = an agent has answered. This keeps replied tickets (which jump
+  // to the top by updated_at) from mixing with brand-new ones.
+  const [tab, setTab] = useState<"open" | "replied">("open");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const inRange = (iso: string) => {
+    const t = new Date(iso).getTime();
+    if (from && t < new Date(`${from}T00:00:00`).getTime()) return false;
+    if (to && t > new Date(`${to}T23:59:59`).getTime()) return false;
+    return true;
+  };
+
+  const dated = tickets.filter((t) => inRange(t.createdAt));
+  const openList = dated.filter((t) => !t.repliedByAgent);
+  const repliedList = dated.filter((t) => t.repliedByAgent);
+  const visible = tab === "open" ? openList : repliedList;
+
   const toggle = (id: number, next: boolean) =>
     setSelected((prev) => {
       const out = new Set(prev);
@@ -327,6 +350,15 @@ function TicketList({
     ob.observe(el);
     return () => ob.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Tabs + date filter partition the lazily-loaded stream client-side, so a tab
+  // can look empty until enough pages load. Keep pulling pages while the active
+  // view is short and more pages exist.
+  useEffect(() => {
+    if (visible.length < 12 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [visible.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const applyBulk = (status: StatusOption) => {
     const ids = [...selected];
@@ -369,6 +401,64 @@ function TicketList({
         >
           <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
         </Button>
+      </div>
+
+      {/* Open vs Replied tabs */}
+      <div className="flex shrink-0 gap-1 border-b p-1.5">
+        {([
+          ["open", "Open", openList.length],
+          ["replied", "Replied", repliedList.length],
+        ] as const).map(([key, label, n]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+              tab === key
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent/50",
+            )}
+          >
+            {label}
+            <span className="ml-1.5 tabular-nums opacity-70">
+              {n}
+              {hasNextPage ? "+" : ""}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Date filter (by created date) */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b px-3 py-2">
+        <Input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          aria-label="From date"
+          className="h-7 flex-1 text-xs"
+        />
+        <span className="text-xs text-muted-foreground">to</span>
+        <Input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          aria-label="To date"
+          className="h-7 flex-1 text-xs"
+        />
+        {(from || to) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => {
+              setFrom("");
+              setTo("");
+            }}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Bulk action bar (only when something is selected) */}
@@ -417,13 +507,16 @@ function TicketList({
           </div>
         )}
 
-        {!isLoading && tickets.length === 0 && (
+        {!isLoading && visible.length === 0 && !hasNextPage && !isFetchingNextPage && (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            Nothing here from the last 30 days.
+            {tab === "open"
+              ? "No open tickets here."
+              : "No replied tickets here."}
+            {(from || to) && " Try widening the date range."}
           </div>
         )}
 
-        {tickets.map((t) => (
+        {visible.map((t) => (
           <TicketRow
             key={t.id}
             ticket={t}
@@ -436,7 +529,7 @@ function TicketList({
 
         {/* Sentinel + loading indicator for lazy paging */}
         <div ref={sentinelRef} />
-        {isFetchingNextPage && (
+        {(isFetchingNextPage || (visible.length === 0 && hasNextPage)) && (
           <div className="flex items-center justify-center gap-2 p-4 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" /> Loading more…
           </div>
@@ -815,6 +908,23 @@ function TicketDetailView({
 }) {
   const { data: ticket, isLoading, isError, error } = useTicket(ticketId);
   const statusMut = useUpdateTicketStatus(ticketId);
+  const { data: scenarios = [] } = useScenarios();
+  const runScenarioMut = useRunScenario(ticketId);
+
+  const runScenario = (s: ScenarioSummary) => {
+    const ok = window.confirm(
+      `Run "${s.name}" on this ticket?\n\nIt will ${s.summary || "apply its actions"}. ` +
+        `This may email the requester and can't be undone.`,
+    );
+    if (!ok) return;
+    runScenarioMut.mutate(
+      { scenarioId: s.id, scenarioName: s.name },
+      {
+        onSuccess: () => toast.success(`Ran "${s.name}".`),
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -872,6 +982,42 @@ function TicketDetailView({
                 </Button>
               }
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild disabled={runScenarioMut.isPending}>
+                <Button variant="outline" size="sm" className="h-7">
+                  {runScenarioMut.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Play className="size-3.5" />
+                  )}
+                  Run scenario
+                  <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>Scenario automations</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {scenarios.length === 0 && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No scenarios defined in Freshdesk.
+                  </div>
+                )}
+                {scenarios.map((s) => (
+                  <DropdownMenuItem
+                    key={s.id}
+                    onSelect={() => runScenario(s)}
+                    className="flex-col items-start gap-0.5"
+                  >
+                    <span className="font-medium">{s.name}</span>
+                    {s.summary && (
+                      <span className="text-xs text-muted-foreground">
+                        {s.summary}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

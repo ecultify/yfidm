@@ -32,6 +32,7 @@ export interface TicketSummary {
   createdAt: string;
   updatedAt: string;
   dueBy: string | null;
+  repliedByAgent: boolean;
 }
 
 export interface TicketRequester {
@@ -78,6 +79,13 @@ export interface CannedResponse {
   updatedAt: string;
 }
 
+export interface ScenarioSummary {
+  id: number;
+  name: string;
+  description: string;
+  summary: string;
+}
+
 /** The status labels the agent can move a ticket to. */
 export const STATUS_OPTIONS = ["Open", "Pending", "Resolved", "Closed"] as const;
 export type StatusOption = (typeof STATUS_OPTIONS)[number];
@@ -121,6 +129,7 @@ export const supportKeys = {
   ticket: (id: number) => [...supportKeys.all, "ticket", id] as const,
   count: () => [...supportKeys.all, "count"] as const,
   canned: () => [...supportKeys.all, "canned"] as const,
+  scenarios: () => [...supportKeys.all, "scenarios"] as const,
 };
 
 // ── tickets list (lazy / infinite) + count ──────────────────────────────────
@@ -266,5 +275,38 @@ export function useDeleteCanned() {
     mutationFn: (id: string) =>
       apiSend<{ ok: boolean }>("DELETE", `/api/support/canned/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: supportKeys.canned() }),
+  });
+}
+
+// ── scenario automations (admin-defined in Freshdesk; list + run only) ────────
+
+export function useScenarios() {
+  return useQuery({
+    queryKey: supportKeys.scenarios(),
+    queryFn: () => apiGet<ScenarioSummary[]>("/api/support/scenarios"),
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}
+
+/**
+ * Runs a scenario on a ticket. The backend also drops an internal note and logs
+ * the action. Invalidates the ticket + list since the scenario can change status
+ * and append a reply.
+ */
+export function useRunScenario(ticketId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { scenarioId: number; scenarioName: string }) =>
+      apiSend<{ ok: boolean }>(
+        "POST",
+        `/api/support/tickets/${ticketId}/scenario`,
+        vars,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: supportKeys.ticket(ticketId) });
+      qc.invalidateQueries({ queryKey: supportKeys.tickets() });
+      qc.invalidateQueries({ queryKey: supportKeys.count() });
+    },
   });
 }

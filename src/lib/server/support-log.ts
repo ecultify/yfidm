@@ -21,7 +21,8 @@ export type TicketAction =
   | "reply"
   | "note"
   | "status_change"
-  | "bulk_status";
+  | "bulk_status"
+  | "scenario";
 
 /** Strips HTML tags + collapses whitespace, then clamps, for storing snippets. */
 export function snippet(html: string, max = 280): string {

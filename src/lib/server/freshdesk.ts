@@ -267,6 +267,13 @@ interface RawTicket {
   updated_at: string;
   requester?: RawRequester; // present with ?include=requester
   conversations?: RawConversation[]; // present with ?include=conversations
+  stats?: RawTicketStats; // present with ?include=stats
+}
+
+interface RawTicketStats {
+  agent_responded_at?: string | null;
+  first_responded_at?: string | null;
+  requester_responded_at?: string | null;
 }
 
 interface RawRequester {
@@ -307,6 +314,8 @@ export interface TicketSummary {
   createdAt: string;
   updatedAt: string;
   dueBy: string | null;
+  /** True when an agent has responded at least once (needs ?include=stats). */
+  repliedByAgent: boolean;
 }
 
 export interface TicketRequester {
@@ -347,6 +356,9 @@ function shapeTicket(t: RawTicket): TicketSummary {
     createdAt: t.created_at,
     updatedAt: t.updated_at,
     dueBy: t.due_by ?? null,
+    repliedByAgent: Boolean(
+      t.stats && (t.stats.first_responded_at || t.stats.agent_responded_at),
+    ),
   };
 }
 
@@ -556,7 +568,8 @@ export async function listTicketsPage(
   const qs = new URLSearchParams({
     per_page: String(perPage),
     page: String(page),
-    include: "description",
+    // stats gives first/agent_responded_at, which drives the Open vs Replied tabs.
+    include: "description,stats",
     order_by: "updated_at",
     order_type: "desc",
   });
@@ -675,4 +688,79 @@ export async function bulkUpdateStatus(
     }
   }
   return { jobId, succeeded, failed };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Scenario automations (defined by an admin in Freshdesk; the API can only
+// LIST and EXECUTE them — it can't create/edit them or read the reply text).
+// ──────────────────────────────────────────────────────────────────────────
+
+interface RawScenarioAction {
+  name: string;
+  value?: string;
+}
+
+interface RawScenario {
+  id: number;
+  name: string;
+  description?: string;
+  actions?: RawScenarioAction[];
+  private?: boolean;
+}
+
+export interface ScenarioSummary {
+  id: number;
+  name: string;
+  description: string;
+  /** Human summary of what running it does, e.g. "set status to Closed, send a reply". */
+  summary: string;
+}
+
+function summarizeScenario(actions: RawScenarioAction[]): string {
+  const parts = actions.map((a) => {
+    switch (a.name) {
+      case "status":
+        return `set status to ${TICKET_STATUS[Number(a.value)] ?? a.value}`;
+      case "priority":
+        return `set priority to ${TICKET_PRIORITY[Number(a.value)] ?? a.value}`;
+      case "add_reply":
+        return "send a reply";
+      case "add_note":
+        return "add a note";
+      default:
+        return a.name.replace(/_/g, " ");
+    }
+  });
+  return parts.join(", ");
+}
+
+/**
+ * GET /scenario_automations - the account's scenario automations (admin-defined
+ * in Freshdesk). The reply body inside an automation is NOT exposed by the API,
+ * so we only surface the name + a summary of its actions.
+ */
+export async function listScenarios(): Promise<ScenarioSummary[]> {
+  const data = await request<RawScenario[]>(`/scenario_automations?per_page=100`);
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description ?? "",
+    summary: summarizeScenario(s.actions ?? []),
+  }));
+}
+
+/**
+ * PUT /tickets/{id}/scenario - run a scenario automation on a ticket. Freshdesk
+ * expects BOTH ids in the body. This applies the scenario's actions (which may
+ * send a customer-facing reply and change status), so the calling route gates
+ * it behind an explicit confirmation. Returns nothing on success.
+ */
+export async function executeScenario(
+  ticketId: number,
+  scenarioId: number,
+): Promise<void> {
+  await request(`/tickets/${ticketId}/scenario`, {
+    method: "PUT",
+    body: JSON.stringify({ scenario_id: scenarioId, ticket_id: ticketId }),
+  });
 }
