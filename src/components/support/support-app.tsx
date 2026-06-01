@@ -910,17 +910,18 @@ function TicketDetailView({
   const statusMut = useUpdateTicketStatus(ticketId);
   const { data: scenarios = [] } = useScenarios();
   const runScenarioMut = useRunScenario(ticketId);
+  const [confirmScenario, setConfirmScenario] = useState<ScenarioSummary | null>(
+    null,
+  );
 
   const runScenario = (s: ScenarioSummary) => {
-    const ok = window.confirm(
-      `Run "${s.name}" on this ticket?\n\nIt will ${s.summary || "apply its actions"}. ` +
-        `This may email the requester and can't be undone.`,
-    );
-    if (!ok) return;
     runScenarioMut.mutate(
       { scenarioId: s.id, scenarioName: s.name },
       {
-        onSuccess: () => toast.success(`Ran "${s.name}".`),
+        onSuccess: () => {
+          toast.success(`Ran "${s.name}".`);
+          setConfirmScenario(null);
+        },
         onError: (e) => toast.error((e as Error).message),
       },
     );
@@ -1005,7 +1006,7 @@ function TicketDetailView({
                 {scenarios.map((s) => (
                   <DropdownMenuItem
                     key={s.id}
-                    onSelect={() => runScenario(s)}
+                    onSelect={() => setConfirmScenario(s)}
                     className="flex-col items-start gap-0.5"
                   >
                     <span className="font-medium">{s.name}</span>
@@ -1070,6 +1071,42 @@ function TicketDetailView({
           <Composer ticketId={ticket.id} onOpenManage={onOpenManage} />
         </div>
       </div>
+
+      <Dialog
+        open={confirmScenario !== null}
+        onOpenChange={(o) => !o && setConfirmScenario(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Run scenario?</DialogTitle>
+            <DialogDescription>
+              {confirmScenario
+                ? `"${confirmScenario.name}" will ${confirmScenario.summary || "apply its actions"} on this ticket. It may email the requester and can't be undone.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmScenario(null)}
+              disabled={runScenarioMut.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => confirmScenario && runScenario(confirmScenario)}
+              disabled={runScenarioMut.isPending}
+            >
+              {runScenarioMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              Run scenario
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1106,7 +1143,7 @@ export function SupportApp() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-80 shrink-0 flex-col border-r">
+        <div className="flex w-[22rem] shrink-0 flex-col border-r">
           <TicketList selectedId={selectedId} onSelect={setSelectedId} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
