@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "actionKey is required" }, { status: 400 });
     }
 
-    const result = await applyQuickActionBulk(cleanIds, actionKey);
+    const result = await applyQuickActionBulk(cleanIds, actionKey, me.name);
 
     // Log the tickets where at least the reply or property landed (best-effort).
     await Promise.all(

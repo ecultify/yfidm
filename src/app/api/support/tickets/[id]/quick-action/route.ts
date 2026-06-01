@@ -41,7 +41,7 @@ export async function POST(
     }
 
     try {
-      const { action } = await applyQuickAction(numericId, actionKey);
+      const { action } = await applyQuickAction(numericId, actionKey, me.name);
       await logTicketActivity(me, numericId, "quick_action", action);
       return NextResponse.json({ ok: true, action });
     } catch (e) {

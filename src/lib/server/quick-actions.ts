@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  addNote,
   bulkUpdateProperties,
   replyToTicket,
   updateTicketProperties,
@@ -136,6 +137,14 @@ export function textToHtml(text: string): string {
     .join("<br><br>");
 }
 
+/** A private internal note recording that a quick action was applied. */
+function quickActionNoteHtml(label: string, actorName?: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const by = actorName ? ` by ${esc(actorName)}` : "";
+  return `<p>Quick action "<b>${esc(label)}</b>" applied via the support app${by}.</p>`;
+}
+
 /** Raised when a quick action fails, naming which step failed. */
 export class QuickActionError extends Error {
   constructor(
@@ -157,6 +166,7 @@ export class QuickActionError extends Error {
 export async function applyQuickAction(
   ticketId: number,
   actionKey: string,
+  actorName?: string,
 ): Promise<{ action: string }> {
   const action = getAction(actionKey);
 
@@ -170,6 +180,14 @@ export async function applyQuickAction(
     await replyToTicket(ticketId, textToHtml(action.replyText));
   } catch (e) {
     throw new QuickActionError("reply", e);
+  }
+
+  // Best-effort private note on the ticket recording the action. The reply has
+  // already sent, so a note hiccup must not fail the request.
+  try {
+    await addNote(ticketId, quickActionNoteHtml(action.label, actorName));
+  } catch {
+    /* note is best-effort */
   }
 
   return { action: action.label };
@@ -195,9 +213,11 @@ export interface QuickActionBulkResult {
 export async function applyQuickActionBulk(
   ids: number[],
   actionKey: string,
+  actorName?: string,
 ): Promise<QuickActionBulkResult> {
   const action = getAction(actionKey);
   const html = textToHtml(action.replyText);
+  const noteHtml = quickActionNoteHtml(action.label, actorName);
 
   const prop = await bulkUpdateProperties(ids, action.properties);
   const propOk = new Set(prop.succeeded);
@@ -212,6 +232,14 @@ export async function applyQuickActionBulk(
       replyOk = true;
     } catch (e) {
       error = e instanceof Error ? e.message : "reply failed";
+    }
+    if (replyOk) {
+      // Best-effort note per ticket where the reply landed.
+      try {
+        await addNote(id, noteHtml);
+      } catch {
+        /* note is best-effort */
+      }
     }
     if (!propertyOk && !error) error = "status change did not apply";
     results.push({ id, propertyOk, replyOk, error });
