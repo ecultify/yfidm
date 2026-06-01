@@ -191,6 +191,18 @@ CREATE TABLE IF NOT EXISTS admin_audit (
   KEY idx_admin_audit_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+--  Sheet exports — dedupe ledger for the Google Sheet logger. One row per
+--  conversation/ticket that has been pushed to the sheet, so a handled query is
+--  logged exactly once even if it's re-resolved or a quick action re-runs.
+--  export_key is e.g. 'freshdesk:122795', 'instagram:<id>', 'linkedin:<id>'.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sheet_exports (
+  export_key VARCHAR(120) NOT NULL,
+  created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (export_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================

@@ -19,7 +19,13 @@ import "server-only";
 // Auth + base URL
 // ──────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = "https://sbiyouthforindia.freshdesk.com/api/v2";
+const PORTAL_URL = "https://sbiyouthforindia.freshdesk.com";
+const BASE_URL = `${PORTAL_URL}/api/v2`;
+
+/** Agent-facing URL for a ticket (for links in exports/notes). */
+export function ticketUrl(id: number): string {
+  return `${PORTAL_URL}/a/tickets/${id}`;
+}
 
 function apiKey(): string {
   const value = process.env.FRESHDESK_API_KEY;

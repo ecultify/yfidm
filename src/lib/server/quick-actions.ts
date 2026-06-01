@@ -3,9 +3,18 @@ import "server-only";
 import {
   addNote,
   bulkUpdateProperties,
+  getTicket,
   replyToTicket,
+  ticketUrl,
   updateTicketProperties,
 } from "./freshdesk";
+import {
+  appendSheetRow,
+  fmtDate,
+  fmtTime,
+  plain,
+  sheetsConfigured,
+} from "./sheets-log";
 
 /**
  * Predefined "quick actions" for the support desk. Each one replicates a
@@ -145,6 +154,33 @@ function quickActionNoteHtml(label: string, actorName?: string): string {
   return `<p>Quick action "<b>${esc(label)}</b>" applied via the support app${by}.</p>`;
 }
 
+/**
+ * Best-effort: log a closed+replied Freshdesk ticket to the Google Sheet. The
+ * quick action both closes and replies, so this is the "handled query" moment.
+ * Type of Queries = the quick action's label. Never throws.
+ */
+async function logTicketToSheet(ticketId: number, actionLabel: string) {
+  if (!sheetsConfigured()) return;
+  try {
+    const t = await getTicket(ticketId, { requester: true });
+    await appendSheetRow(`freshdesk:${ticketId}`, {
+      platform: "Freshdesk",
+      dateReceived: fmtDate(t.createdAt),
+      time: fmtTime(t.createdAt),
+      name: t.requester?.name ?? "",
+      designation: "Applicant",
+      organisation: "",
+      typeOfQueries: actionLabel,
+      query: plain(t.description ?? ""),
+      personTeam: "",
+      documentLink: ticketUrl(ticketId),
+      driveLink: "",
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 /** Raised when a quick action fails, naming which step failed. */
 export class QuickActionError extends Error {
   constructor(
@@ -189,6 +225,9 @@ export async function applyQuickAction(
   } catch {
     /* note is best-effort */
   }
+
+  // Best-effort: log the handled query to the Google Sheet (closed + replied).
+  await logTicketToSheet(ticketId, action.label);
 
   return { action: action.label };
 }
@@ -241,6 +280,8 @@ export async function applyQuickActionBulk(
         /* note is best-effort */
       }
     }
+    // Log to the sheet only when the ticket was both closed and replied.
+    if (propertyOk && replyOk) await logTicketToSheet(id, action.label);
     if (!propertyOk && !error) error = "status change did not apply";
     results.push({ id, propertyOk, replyOk, error });
   }
