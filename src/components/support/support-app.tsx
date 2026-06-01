@@ -56,9 +56,10 @@ import {
   useCreateCanned,
   useDeleteCanned,
   useInfiniteTickets,
+  useApplyQuickAction,
+  useApplyQuickActionBulk,
+  useQuickActions,
   useReplyToTicket,
-  useRunScenario,
-  useScenarios,
   useTicket,
   useTicketCount,
   useUpdateCanned,
@@ -66,7 +67,8 @@ import {
   type BulkStatusResult,
   type CannedResponse,
   type Labeled,
-  type ScenarioSummary,
+  type QuickAction,
+  type QuickActionBulkResult,
   type StatusOption,
   type TicketConversation,
   type TicketSummary,
@@ -295,6 +297,8 @@ function TicketList({
   } = useInfiniteTickets();
   const count = useTicketCount();
   const bulk = useBulkUpdateStatus();
+  const { data: quickActions = [] } = useQuickActions();
+  const quickBulk = useApplyQuickActionBulk();
   const qcKeyRefetch = () => {
     refetch();
     count.refetch();
@@ -305,6 +309,30 @@ function TicketList({
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [results, setResults] = useState<BulkStatusResult | null>(null);
+  const [confirmBulkAction, setConfirmBulkAction] = useState<QuickAction | null>(
+    null,
+  );
+  const [qaResults, setQaResults] = useState<QuickActionBulkResult | null>(null);
+
+  const applyQuickBulk = (action: QuickAction) => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    quickBulk.mutate(
+      { ids, actionKey: action.key },
+      {
+        onSuccess: (res) => {
+          setQaResults(res);
+          setConfirmBulkAction(null);
+          setSelected(new Set());
+          const ok = res.results.filter((r) => r.propertyOk && r.replyOk).length;
+          const bad = res.results.length - ok;
+          if (bad === 0) toast.success(`${ok} ticket(s) done.`);
+          else toast.warning(`${ok} done, ${bad} had issues.`);
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
 
   // Tab + date filter. "Open" = no agent reply yet (needs a response);
   // "Replied" = an agent has answered. This keeps replied tickets (which jump
@@ -478,6 +506,38 @@ function TicketList({
               </Button>
             }
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={quickBulk.isPending}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                disabled={quickBulk.isPending}
+              >
+                {quickBulk.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Play className="size-3.5" />
+                )}
+                Quick action
+                <ChevronDown className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Apply to selected</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {quickActions.map((a) => (
+                <DropdownMenuItem
+                  key={a.key}
+                  onSelect={() => setConfirmBulkAction(a)}
+                  className="flex-col items-start gap-0.5"
+                >
+                  <span className="font-medium">{a.label}</span>
+                  <span className="text-xs text-muted-foreground">{a.summary}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost"
             size="sm"
@@ -537,6 +597,73 @@ function TicketList({
       </div>
 
       <BulkResultsDialog result={results} onClose={() => setResults(null)} />
+
+      {/* Bulk quick-action confirm */}
+      <Dialog
+        open={confirmBulkAction !== null}
+        onOpenChange={(o) => !o && setConfirmBulkAction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apply &ldquo;{confirmBulkAction?.label}&rdquo; to {selected.size} ticket(s)?</DialogTitle>
+            <DialogDescription>
+              {confirmBulkAction
+                ? `This sets ${confirmBulkAction.summary} on ${selected.size} ticket(s) and sends a real email to each requester. It can't be undone.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmBulkAction(null)}
+              disabled={quickBulk.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => confirmBulkAction && applyQuickBulk(confirmBulkAction)}
+              disabled={quickBulk.isPending}
+            >
+              {quickBulk.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              Apply &amp; send to {selected.size}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk quick-action per-ticket results */}
+      <Dialog open={qaResults !== null} onOpenChange={(o) => !o && setQaResults(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Result: {qaResults?.action}</DialogTitle>
+            <DialogDescription>
+              {qaResults
+                ? `${qaResults.results.filter((r) => r.propertyOk && r.replyOk).length} fully done, ${qaResults.results.filter((r) => !(r.propertyOk && r.replyOk)).length} with issues.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {qaResults && (
+            <div className="max-h-60 space-y-1 overflow-y-auto rounded-md border p-2 text-sm">
+              {qaResults.results.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-2">
+                  <span>#{r.id}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {r.propertyOk ? "status ✓" : "status ✗"} ·{" "}
+                    {r.replyOk ? "reply ✓" : `reply ✗${r.error ? ` (${r.error})` : ""}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setQaResults(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -908,23 +1035,18 @@ function TicketDetailView({
 }) {
   const { data: ticket, isLoading, isError, error } = useTicket(ticketId);
   const statusMut = useUpdateTicketStatus(ticketId);
-  const { data: scenarios = [] } = useScenarios();
-  const runScenarioMut = useRunScenario(ticketId);
-  const [confirmScenario, setConfirmScenario] = useState<ScenarioSummary | null>(
-    null,
-  );
+  const { data: quickActions = [] } = useQuickActions();
+  const quickActionMut = useApplyQuickAction(ticketId);
+  const [confirmAction, setConfirmAction] = useState<QuickAction | null>(null);
 
-  const runScenario = (s: ScenarioSummary) => {
-    runScenarioMut.mutate(
-      { scenarioId: s.id, scenarioName: s.name },
-      {
-        onSuccess: () => {
-          toast.success(`Ran "${s.name}".`);
-          setConfirmScenario(null);
-        },
-        onError: (e) => toast.error((e as Error).message),
+  const runQuickAction = (a: QuickAction) => {
+    quickActionMut.mutate(a.key, {
+      onSuccess: () => {
+        toast.success(`Applied "${a.label}".`);
+        setConfirmAction(null);
       },
-    );
+      onError: (e) => toast.error((e as Error).message),
+    });
   };
 
   if (isLoading) {
@@ -984,37 +1106,35 @@ function TicketDetailView({
               }
             />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild disabled={runScenarioMut.isPending}>
+              <DropdownMenuTrigger asChild disabled={quickActionMut.isPending}>
                 <Button variant="outline" size="sm" className="h-7">
-                  {runScenarioMut.isPending ? (
+                  {quickActionMut.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     <Play className="size-3.5" />
                   )}
-                  Run scenario
+                  Quick action
                   <ChevronDown className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel>Scenario automations</DropdownMenuLabel>
+                <DropdownMenuLabel>Quick actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {scenarios.length === 0 && (
+                {quickActions.length === 0 && (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    No scenarios defined in Freshdesk.
+                    No quick actions configured.
                   </div>
                 )}
-                {scenarios.map((s) => (
+                {quickActions.map((a) => (
                   <DropdownMenuItem
-                    key={s.id}
-                    onSelect={() => setConfirmScenario(s)}
+                    key={a.key}
+                    onSelect={() => setConfirmAction(a)}
                     className="flex-col items-start gap-0.5"
                   >
-                    <span className="font-medium">{s.name}</span>
-                    {s.summary && (
-                      <span className="text-xs text-muted-foreground">
-                        {s.summary}
-                      </span>
-                    )}
+                    <span className="font-medium">{a.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {a.summary}
+                    </span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -1073,36 +1193,36 @@ function TicketDetailView({
       </div>
 
       <Dialog
-        open={confirmScenario !== null}
-        onOpenChange={(o) => !o && setConfirmScenario(null)}
+        open={confirmAction !== null}
+        onOpenChange={(o) => !o && setConfirmAction(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Run scenario?</DialogTitle>
+            <DialogTitle>Apply &ldquo;{confirmAction?.label}&rdquo;?</DialogTitle>
             <DialogDescription>
-              {confirmScenario
-                ? `"${confirmScenario.name}" will ${confirmScenario.summary || "apply its actions"} on this ticket. It may email the requester and can't be undone.`
+              {confirmAction
+                ? `This will set ${confirmAction.summary} on ticket #${ticket.id} and send a real email to ${ticket.requester?.email ?? "the requester"}. It can't be undone.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setConfirmScenario(null)}
-              disabled={runScenarioMut.isPending}
+              onClick={() => setConfirmAction(null)}
+              disabled={quickActionMut.isPending}
             >
               Cancel
             </Button>
             <Button
-              onClick={() => confirmScenario && runScenario(confirmScenario)}
-              disabled={runScenarioMut.isPending}
+              onClick={() => confirmAction && runQuickAction(confirmAction)}
+              disabled={quickActionMut.isPending}
             >
-              {runScenarioMut.isPending ? (
+              {quickActionMut.isPending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Play className="size-4" />
               )}
-              Run scenario
+              Apply &amp; send
             </Button>
           </DialogFooter>
         </DialogContent>

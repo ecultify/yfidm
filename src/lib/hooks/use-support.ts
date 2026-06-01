@@ -86,6 +86,22 @@ export interface ScenarioSummary {
   summary: string;
 }
 
+export interface QuickAction {
+  key: string;
+  label: string;
+  summary: string;
+}
+
+export interface QuickActionBulkResult {
+  action: string;
+  results: {
+    id: number;
+    propertyOk: boolean;
+    replyOk: boolean;
+    error?: string;
+  }[];
+}
+
 /** The status labels the agent can move a ticket to. */
 export const STATUS_OPTIONS = ["Open", "Pending", "Resolved", "Closed"] as const;
 export type StatusOption = (typeof STATUS_OPTIONS)[number];
@@ -130,6 +146,7 @@ export const supportKeys = {
   count: () => [...supportKeys.all, "count"] as const,
   canned: () => [...supportKeys.all, "canned"] as const,
   scenarios: () => [...supportKeys.all, "scenarios"] as const,
+  quickActions: () => [...supportKeys.all, "quick-actions"] as const,
 };
 
 // ── tickets list (lazy / infinite) + count ──────────────────────────────────
@@ -305,6 +322,55 @@ export function useRunScenario(ticketId: number) {
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: supportKeys.ticket(ticketId) });
+      qc.invalidateQueries({ queryKey: supportKeys.tickets() });
+      qc.invalidateQueries({ queryKey: supportKeys.count() });
+    },
+  });
+}
+
+// ── quick actions (our replica of scenario automations) ──────────────────────
+
+export function useQuickActions() {
+  return useQuery({
+    queryKey: supportKeys.quickActions(),
+    queryFn: () => apiGet<QuickAction[]>("/api/support/quick-actions"),
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+  });
+}
+
+/**
+ * Applies a quick action (property update + customer-facing reply) to one
+ * ticket. Invalidates the ticket + list since status changes and a reply lands.
+ */
+export function useApplyQuickAction(ticketId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (actionKey: string) =>
+      apiSend<{ ok: boolean; action: string }>(
+        "POST",
+        `/api/support/tickets/${ticketId}/quick-action`,
+        { actionKey },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: supportKeys.ticket(ticketId) });
+      qc.invalidateQueries({ queryKey: supportKeys.tickets() });
+      qc.invalidateQueries({ queryKey: supportKeys.count() });
+    },
+  });
+}
+
+/** Applies a quick action to many selected tickets; returns per-ticket results. */
+export function useApplyQuickActionBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { ids: number[]; actionKey: string }) =>
+      apiSend<QuickActionBulkResult>(
+        "POST",
+        "/api/support/tickets/quick-action-bulk",
+        vars,
+      ),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: supportKeys.tickets() });
       qc.invalidateQueries({ queryKey: supportKeys.count() });
     },

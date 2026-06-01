@@ -631,6 +631,79 @@ export async function updateTicketStatus(
   return shapeTicket(t);
 }
 
+/**
+ * PUT /tickets/{id} with an arbitrary property set (status, priority, …). A
+ * partial update — only the given fields are sent. Used by quick actions.
+ * Throws {@link FreshdeskError} (e.g. 400 required-field on close, 403 scope).
+ */
+export async function updateTicketProperties(
+  id: number,
+  properties: Record<string, number>,
+): Promise<TicketSummary> {
+  const t = await request<RawTicket>(`/tickets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(properties),
+  });
+  return shapeTicket(t);
+}
+
+export interface BulkPropertiesResult {
+  jobId: string | null;
+  succeeded: number[];
+  failed: { id: number; reason: string }[];
+}
+
+/**
+ * POST /tickets/bulk_update with arbitrary properties (e.g. status + priority),
+ * polls the async job, then verifies each ticket actually has the new values
+ * (Freshdesk can fail individual tickets silently on agent scope). Returns which
+ * ids took the change.
+ */
+export async function bulkUpdateProperties(
+  ids: number[],
+  properties: Record<string, number>,
+): Promise<BulkPropertiesResult> {
+  if (ids.length === 0) return { jobId: null, succeeded: [], failed: [] };
+
+  const start = await request<{ job_id?: string; id?: string }>(
+    `/tickets/bulk_update`,
+    {
+      method: "POST",
+      body: JSON.stringify({ bulk_action: { ids, properties } }),
+    },
+  );
+  const jobId = start.job_id ?? start.id ?? null;
+
+  if (jobId) {
+    for (let i = 0; i < 10; i++) {
+      try {
+        const job = await request<{ status?: string }>(`/jobs/${jobId}`);
+        if (/complete|success|finish/i.test(job.status ?? "")) break;
+      } catch {
+        /* keep waiting; verification is the source of truth */
+      }
+      await sleep(1000);
+    }
+  }
+
+  const keys = Object.keys(properties);
+  const succeeded: number[] = [];
+  const failed: { id: number; reason: string }[] = [];
+  for (const id of ids) {
+    try {
+      const t = (await request<RawTicket>(`/tickets/${id}`)) as unknown as Record<
+        string,
+        number
+      >;
+      if (keys.every((k) => t[k] === properties[k])) succeeded.push(id);
+      else failed.push({ id, reason: "properties did not apply" });
+    } catch {
+      failed.push({ id, reason: "could not verify (access denied?)" });
+    }
+  }
+  return { jobId, succeeded, failed };
+}
+
 export interface BulkStatusResult {
   jobId: string | null;
   succeeded: number[];
