@@ -11,6 +11,11 @@ import {
 } from "@/lib/server/app-store";
 import { requireUser } from "@/lib/server/auth";
 import {
+  getChat,
+  getChatForAccount,
+  instagramAccount,
+} from "@/lib/server/unipile";
+import {
   appendSheetRow,
   fmtDate,
   fmtTime,
@@ -18,37 +23,53 @@ import {
   sheetsConfigured,
 } from "@/lib/server/sheets-log";
 import { errorResponse } from "../route";
-import type { Conversation, ConversationStatus, Message } from "@/lib/types";
+import type { Channel, ConversationStatus, Message } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
+ * Determines a conversation's TRUE channel from the raw Unipile chat's
+ * account_type ("LINKEDIN" / "INSTAGRAM"). We can't trust the adapters for
+ * detection: both run on the same Unipile account, so the LinkedIn adapter will
+ * happily resolve an Instagram chat and stamp it "linkedin". Returns null if it
+ * can't be determined.
+ */
+async function detectChannel(id: string): Promise<Channel | null> {
+  let accountType = "";
+  try {
+    accountType = ((await getChat(id)).account_type ?? "").toUpperCase();
+  } catch {
+    // IG may live under a different Unipile account; try that explicitly.
+    try {
+      accountType = (
+        (await getChatForAccount(instagramAccount(), id)).account_type ?? ""
+      ).toUpperCase();
+    } catch {
+      return null;
+    }
+  }
+  if (accountType === "INSTAGRAM") return "instagram";
+  if (accountType === "LINKEDIN") return "linkedin";
+  return null;
+}
+
+/**
  * Best-effort: when an Instagram/LinkedIn conversation is marked Resolved AND
  * we've sent a reply, log the handled query to the Google Sheet (once per
- * conversation). Resolves the channel by trying both adapters since the id alone
- * doesn't say which it is. Never throws into the PATCH handler.
+ * conversation). Channel is detected from the raw chat's account_type so the
+ * platform label and profile URL are correct. Never throws into the handler.
  */
 async function logResolvedConversation(id: string): Promise<void> {
   if (!sheetsConfigured()) return;
 
-  let conv: Conversation | null = null;
-  try {
-    conv = await linkedinAdapter.fetchConversation(id);
-  } catch {
-    /* not a LinkedIn chat (or fetch failed) */
-  }
-  if (!conv) {
-    try {
-      conv = await instagramAdapter.fetchConversation(id);
-    } catch {
-      /* not an Instagram chat either */
-    }
-  }
+  const channel = await detectChannel(id);
+  if (!channel) return;
+
+  const adapter = channel === "linkedin" ? linkedinAdapter : instagramAdapter;
+  const conv = await adapter.fetchConversation(id).catch(() => null);
   if (!conv) return;
 
-  const adapter =
-    conv.channel === "linkedin" ? linkedinAdapter : instagramAdapter;
   let messages: Message[] = [];
   try {
     messages = await adapter.fetchMessages(id);
@@ -66,8 +87,8 @@ async function logResolvedConversation(id: string): Promise<void> {
   const when = firstInbound?.sentAt ?? conv.lastMessageAt;
   const tags = conv.tags.filter(Boolean);
 
-  await appendSheetRow(`${conv.channel}:${id}`, {
-    platform: conv.channel === "linkedin" ? "LinkedIn" : "Instagram",
+  await appendSheetRow(`${channel}:${id}`, {
+    platform: channel === "linkedin" ? "LinkedIn" : "Instagram",
     dateReceived: fmtDate(when),
     time: fmtTime(when),
     name: conv.contact.displayName,
