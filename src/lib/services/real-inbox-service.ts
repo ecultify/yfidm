@@ -302,7 +302,10 @@ export class RealInboxService implements InboxService {
     };
 
     void poll();
-    const timer = setInterval(poll, 20_000);
+    // Slow safety-net poll (60s): the webhook-driven pulse is the primary
+    // near-realtime path; this only catches missed webhooks + drives toasts,
+    // so it stays light on the Unipile rate limit.
+    const timer = setInterval(poll, 60_000);
     return () => clearInterval(timer);
   }
 }

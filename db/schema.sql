@@ -203,6 +203,19 @@ CREATE TABLE IF NOT EXISTS sheet_exports (
   PRIMARY KEY (export_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+--  Inbox pulse — a single shared counter bumped on every inbound-message
+--  webhook from Unipile. Browsers poll this tiny counter (cheap, DB-only) and
+--  refetch conversations/messages from Unipile only when it changes, so the
+--  inbox updates in near-realtime without constantly polling the provider.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inbox_pulse (
+  k          VARCHAR(20)         NOT NULL,
+  rev        BIGINT UNSIGNED     NOT NULL DEFAULT 0,
+  updated_at DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (k)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================

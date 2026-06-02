@@ -1,18 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { bumpInboxPulse } from "@/lib/server/app-store";
 import type { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Unipile webhook receiver for new LinkedIn messages.
+ * Unipile webhook receiver for new LinkedIn/Instagram messages.
  *
- * Verifies the shared secret, maps the inbound payload to a normalized
- * {@link Message}, and ACKs with 200. Realtime fan-out to connected clients is
- * not wired yet - for now we log and rely on the RealInboxService poll.
- *
- * // TODO: push mapped messages to clients (SSE / WebSocket / Vercel Queue)
- * //       and invalidate the relevant React Query caches in real time.
+ * Verifies the shared secret, maps the inbound payload, and ACKs with 200. On a
+ * new INBOUND message it bumps the shared inbox pulse; browsers poll that cheap
+ * counter (see /api/inbox/pulse) and refetch only when it changes, giving
+ * near-realtime updates without polling Unipile on a timer.
  */
 export async function POST(req: NextRequest) {
   const expected = process.env.UNIPILE_WEBHOOK_SECRET;
@@ -36,12 +35,9 @@ export async function POST(req: NextRequest) {
   }
 
   const message = mapWebhookToMessage(payload);
-  if (message) {
-    console.log("[unipile webhook] new message", {
-      conversationId: message.conversationId,
-      direction: message.direction,
-    });
-    // TODO: broadcast `message` to subscribed clients (realtime seam).
+  if (message && message.direction === "inbound") {
+    // New message from a contact → bump the pulse so clients refetch promptly.
+    await bumpInboxPulse();
   }
 
   return NextResponse.json({ received: true });

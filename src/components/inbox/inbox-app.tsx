@@ -9,7 +9,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { useRealtimeInbound } from "@/lib/hooks";
+import { useRealtimeInbound, useInboxPulse } from "@/lib/hooks";
 import { CHANNELS } from "@/lib/channel";
 import { LeftRail } from "./left-rail";
 import { ConversationList } from "./conversation-list";
@@ -161,7 +161,10 @@ function InboxShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDesktop]);
 
-  // Realtime: surface a toast when a simulated inbound message arrives.
+  // Near-realtime: cheap server-pulse poll refetches on inbound webhooks.
+  useInboxPulse();
+
+  // Realtime: surface a toast when an inbound message arrives.
   useRealtimeInbound((message) => {
     const meta = CHANNELS[message.channel];
     toast(`New ${meta.label} message`, {

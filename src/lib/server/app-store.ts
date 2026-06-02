@@ -6,7 +6,7 @@ import type {
   InternalNote,
 } from "@/lib/types";
 import crypto from "crypto";
-import { execute, query, toIso } from "./db";
+import { execute, query, queryOne, toIso } from "./db";
 
 /**
  * App-owned conversation state that Unipile does NOT store: status, assignee,
@@ -29,6 +29,37 @@ export interface Actor {
 
 function placeholders(n: number): string {
   return Array.from({ length: n }, () => "?").join(",");
+}
+
+// ---- realtime pulse ----
+//
+// A single shared counter bumped whenever a Unipile webhook reports a new
+// inbound message. Clients poll this cheap counter (DB only, never Unipile) and
+// refetch conversations/messages from Unipile ONLY when it changes — so
+// realtime updates are event-driven and don't burn the provider rate limit.
+
+/** Increments the global inbox pulse. Best-effort; never throws. */
+export async function bumpInboxPulse(): Promise<void> {
+  try {
+    await execute(
+      `INSERT INTO inbox_pulse (k, rev) VALUES ('global', 1)
+       ON DUPLICATE KEY UPDATE rev = rev + 1`,
+    );
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Reads the global inbox pulse revision (0 if unset / DB unavailable). */
+export async function getInboxPulse(): Promise<number> {
+  try {
+    const row = await queryOne<{ rev: number }>(
+      "SELECT rev FROM inbox_pulse WHERE k = 'global'",
+    );
+    return Number(row?.rev ?? 0);
+  } catch {
+    return 0;
+  }
 }
 
 // ---- mutations ----
