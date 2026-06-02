@@ -77,9 +77,6 @@ async function logResolvedConversation(id: string): Promise<void> {
     return;
   }
 
-  // Only log if our side actually replied.
-  if (!messages.some((m) => m.direction === "outbound")) return;
-
   const sorted = [...messages].sort(
     (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
   );
@@ -87,18 +84,32 @@ async function logResolvedConversation(id: string): Promise<void> {
   // handled), NOT their oldest message ever — DM threads accumulate history.
   const inbound = sorted.filter((m) => m.direction === "inbound");
   const query = inbound[inbound.length - 1];
-  const when = query?.sentAt ?? conv.lastMessageAt;
+  if (!query) return; // nothing inbound to log
+
+  // Only log if an agent actually REPLIED to that latest message. If the agent
+  // resolved without responding (after their last message), the query was
+  // useless / spam — don't record it on the sheet.
+  const repliedAfter = sorted.some(
+    (m) =>
+      m.direction === "outbound" &&
+      new Date(m.sentAt).getTime() > new Date(query.sentAt).getTime(),
+  );
+  if (!repliedAfter) return;
+
   const tags = conv.tags.filter(Boolean);
 
-  await appendSheetRow(`${channel}:${id}`, {
+  // Dedupe per query-round (conversation + the message we handled), so a
+  // re-engaged + re-resolved chat logs the new round but never double-logs the
+  // same one.
+  await appendSheetRow(`${channel}:${id}:${query.id}`, {
     platform: channel === "linkedin" ? "LinkedIn" : "Instagram",
-    dateReceived: fmtDate(when),
-    time: fmtTime(when),
+    dateReceived: fmtDate(query.sentAt),
+    time: fmtTime(query.sentAt),
     name: conv.contact.displayName,
     designation: "Applicant",
     organisation: "",
     typeOfQueries: tags.length ? tags.join(", ") : "General enquiry",
-    query: plain(query?.body ?? conv.lastMessagePreview),
+    query: plain(query.body),
     personTeam: "",
     documentLink: conv.contact.profileUrl,
     driveLink: "",

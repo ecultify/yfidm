@@ -62,6 +62,24 @@ export async function getInboxPulse(): Promise<number> {
   }
 }
 
+/**
+ * A new inbound message reopens a conversation that had been resolved/snoozed:
+ * it needs attention again. Only flips those "done" states — leaves open/pending
+ * alone — and only when a state row already exists (untouched chats are already
+ * effectively open). Best-effort; never throws.
+ */
+export async function reopenOnInbound(conversationId: string): Promise<void> {
+  try {
+    await execute(
+      `UPDATE conversation_state SET status = 'open'
+        WHERE conversation_id = ? AND status IN ('resolved','snoozed')`,
+      [conversationId],
+    );
+  } catch {
+    /* best-effort */
+  }
+}
+
 // ---- mutations ----
 
 export async function setStatus(

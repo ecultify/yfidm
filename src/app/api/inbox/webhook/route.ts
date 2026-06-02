@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { bumpInboxPulse } from "@/lib/server/app-store";
+import { bumpInboxPulse, reopenOnInbound } from "@/lib/server/app-store";
 import type { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
 
   const message = mapWebhookToMessage(payload);
   if (message && message.direction === "inbound") {
-    // New message from a contact → bump the pulse so clients refetch promptly.
+    // A new contact message reopens a resolved/snoozed chat, then bumps the
+    // pulse so clients refetch promptly.
+    await reopenOnInbound(message.conversationId);
     await bumpInboxPulse();
   }
 
