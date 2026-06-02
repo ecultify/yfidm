@@ -1,13 +1,55 @@
 import "server-only";
 
-import { query, toIso, type SqlParam } from "./db";
+import { execute, query, toIso, type SqlParam } from "./db";
 
 /**
  * Brand24 notifications = messages Brand24 posts into our Slack channel,
  * captured by /api/slack/events and stored in `slack_notifications`. Brand24's
  * own API is paywalled on our plan, so Slack is how we get the alerts. This
- * module is the read side: it lists the captured rows for the Brand24 page.
+ * module is both sides: storeSlackNotification() ingests (live webhook +
+ * historical backfill), and listBrand24Notifications() reads for the page.
  */
+
+/** A Slack message to persist, from the live webhook or a history backfill. */
+export interface CapturedSlackMessage {
+  channel: string;
+  ts: string;
+  appId?: string | null;
+  botId?: string | null;
+  text?: string | null;
+  attachments?: unknown[] | null;
+  blocks?: unknown[] | null;
+  raw: unknown;
+}
+
+/**
+ * Idempotently upsert one captured Slack message. The table's UNIQUE
+ * (channel_id, ts) plus ON DUPLICATE KEY makes re-ingesting a no-op, so Slack's
+ * webhook retries and overlapping backfills can't create duplicates. Returns
+ * true only when a NEW row was inserted (affectedRows === 1), so callers can
+ * count how many were actually added.
+ */
+export async function storeSlackNotification(
+  m: CapturedSlackMessage,
+): Promise<boolean> {
+  const affected = await execute(
+    `INSERT INTO slack_notifications
+       (channel_id, ts, app_id, bot_id, text, attachments, blocks, raw)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE id = id`,
+    [
+      m.channel,
+      m.ts,
+      m.appId ?? null,
+      m.botId ?? null,
+      m.text || null,
+      m.attachments?.length ? JSON.stringify(m.attachments) : null,
+      m.blocks?.length ? JSON.stringify(m.blocks) : null,
+      JSON.stringify(m.raw),
+    ],
+  );
+  return affected === 1;
+}
 
 /** A Slack attachment, reduced to the fields Brand24 actually populates. */
 export interface Brand24Attachment {

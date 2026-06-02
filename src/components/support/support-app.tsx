@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ArrowLeft,
   Check,
   ChevronDown,
   FileText,
@@ -15,12 +14,14 @@ import {
   Phone,
   Play,
   Plus,
-  RefreshCw,
   Send,
   StickyNote,
   Trash2,
   User,
 } from "lucide-react";
+import { ArrowLeftIcon } from "@/components/icons/arrow-left";
+import { FileTextIcon } from "@/components/icons/file-text";
+import { RefreshCWIcon } from "@/components/icons/refresh-cw";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { relativeTime, messageTime } from "@/lib/format";
@@ -427,7 +428,7 @@ function TicketList({
           onClick={qcKeyRefetch}
           aria-label="Refresh tickets"
         >
-          <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+          <RefreshCWIcon size={16} className={cn(isFetching && "animate-spin")} />
         </Button>
       </div>
 
@@ -1253,12 +1254,12 @@ export function SupportApp() {
         <span className="text-sm font-semibold">Freshdesk</span>
         <div className="ml-auto flex items-center gap-1.5">
           <Button variant="outline" size="sm" onClick={() => setManageOpen(true)}>
-            <FileText className="size-4" />
+            <FileTextIcon size={16} />
             Templates
           </Button>
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
-              <ArrowLeft className="size-4" />
+              <ArrowLeftIcon size={16} />
               Back to inbox
             </Link>
           </Button>

@@ -6,9 +6,9 @@ import {
   Mail,
   AtSign,
   UserCheck,
-  Settings,
   MessageCircleMore,
 } from "lucide-react";
+import { SettingsIcon } from "@/components/icons/settings";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -276,7 +276,7 @@ export function LeftRail() {
               className="size-8 text-muted-foreground"
               aria-label="Settings"
             >
-              <Settings className="size-4" />
+              <SettingsIcon size={16} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

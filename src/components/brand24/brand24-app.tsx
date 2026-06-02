@@ -3,20 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ArrowLeft,
-  Bell,
-  ExternalLink,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { Bell, ExternalLink, Loader2, Search } from "lucide-react";
+import { ArrowLeftIcon } from "@/components/icons/arrow-left";
+import { BellIcon } from "@/components/icons/bell";
+import { HistoryIcon } from "@/components/icons/history";
+import { RefreshCWIcon } from "@/components/icons/refresh-cw";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { dayLabel, messageTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/lib/hooks";
 import {
+  useBrand24Backfill,
   useBrand24Notifications,
   type Brand24Attachment,
   type Brand24Notification,
@@ -127,7 +127,27 @@ function NotificationCard({ n }: { n: Brand24Notification }) {
 export function Brand24App() {
   const { data = [], isLoading, isError, error, refetch, isFetching } =
     useBrand24Notifications();
+  const me = useCurrentUser();
+  const backfill = useBrand24Backfill();
   const [search, setSearch] = useState("");
+
+  const runBackfill = () => {
+    backfill.mutate(undefined, {
+      onSuccess: (r) => {
+        if (r.inserted > 0) {
+          toast.success(
+            `Imported ${r.inserted} older alert${r.inserted === 1 ? "" : "s"} from Slack.`,
+          );
+        } else {
+          toast.info("No new alerts found in Slack history.");
+        }
+        if (r.truncated) {
+          toast.warning("Hit the history page limit — run again to fetch older ones.");
+        }
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  };
 
   // Toast newly-arrived alerts so they "pop up" while the page is open. We seed
   // the high-water mark on the first successful load (no toast spam for the
@@ -179,6 +199,22 @@ export function Brand24App() {
         <span className="text-sm font-semibold">Brand24</span>
         <span className="text-xs text-muted-foreground">{data.length}</span>
         <div className="ml-auto flex items-center gap-1.5">
+          {me?.role === "admin" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runBackfill}
+              disabled={backfill.isPending}
+              title="Import older alerts from Slack channel history"
+            >
+              {backfill.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <HistoryIcon size={16} />
+              )}
+              {backfill.isPending ? "Importing…" : "Import history"}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -186,11 +222,11 @@ export function Brand24App() {
             onClick={() => refetch()}
             aria-label="Refresh"
           >
-            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+            <RefreshCWIcon size={16} className={cn(isFetching && "animate-spin")} />
           </Button>
           <Button asChild variant="ghost" size="sm">
             <Link href="/">
-              <ArrowLeft className="size-4" />
+              <ArrowLeftIcon size={16} />
               Back to inbox
             </Link>
           </Button>
@@ -227,7 +263,7 @@ export function Brand24App() {
 
           {!isLoading && !isError && filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-              <Bell className="mb-3 size-10 text-muted-foreground/40" />
+              <BellIcon size={40} className="mb-3 text-muted-foreground/40" />
               <p className="text-sm font-medium">
                 {search ? "No matching alerts" : "No Brand24 alerts yet"}
               </p>

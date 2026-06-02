@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 /** Mirror of the server's Brand24Notification (see lib/server/brand24.ts). */
 export interface Brand24Attachment {
@@ -50,5 +50,37 @@ export function useBrand24Notifications() {
     refetchInterval: 20_000,
     refetchOnWindowFocus: true,
     staleTime: 10_000,
+  });
+}
+
+export interface BackfillResult {
+  fetched: number;
+  inserted: number;
+  duplicates: number;
+  skippedNonBot: number;
+  pages: number;
+  truncated: boolean;
+}
+
+/**
+ * Pulls older alerts from Slack channel history into the DB (admin-only on the
+ * server). On success, refetches the list so the recovered alerts appear.
+ */
+export function useBrand24Backfill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<BackfillResult> => {
+      const res = await fetch("/api/brand24/backfill", { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (body as { error?: string } | null)?.error ?? "Backfill failed.",
+        );
+      }
+      return body as BackfillResult;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["brand24", "notifications"] });
+    },
   });
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
-import { execute } from "@/lib/server/db";
+import { storeSlackNotification } from "@/lib/server/brand24";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,30 +133,18 @@ function mapEventToNotification(
   };
 }
 
-/**
- * Persist each captured notification to MySQL (`slack_notifications`).
- *
- * Idempotent: the table has UNIQUE (channel_id, ts), and ON DUPLICATE KEY we
- * just touch the row, so Slack's retries can't create duplicates. JSON columns
- * receive stringified payloads; NULL when the field is absent.
- */
+/** Persist a captured notification via the shared idempotent store. */
 async function handleNotification(notif: SlackNotification): Promise<void> {
-  await execute(
-    `INSERT INTO slack_notifications
-       (channel_id, ts, app_id, bot_id, text, attachments, blocks, raw)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE id = id`,
-    [
-      notif.channel,
-      notif.ts,
-      notif.appId ?? null,
-      notif.botId ?? null,
-      notif.text || null,
-      notif.attachments?.length ? JSON.stringify(notif.attachments) : null,
-      notif.blocks?.length ? JSON.stringify(notif.blocks) : null,
-      JSON.stringify(notif.raw),
-    ],
-  );
+  await storeSlackNotification({
+    channel: notif.channel,
+    ts: notif.ts,
+    appId: notif.appId,
+    botId: notif.botId,
+    text: notif.text,
+    attachments: notif.attachments,
+    blocks: notif.blocks,
+    raw: notif.raw,
+  });
 }
 
 // ── Slack payload shapes (only the fields we use) ──────────────────────────
