@@ -240,6 +240,21 @@ CREATE TABLE IF NOT EXISTS slack_notifications (
   KEY idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+--  Link resolutions — cache of Brand24 redirect/tracking URLs → their final
+--  destination (the real tweet/article/post). Keyed by a hash of the source
+--  URL (URLs are too long for a normal indexed key) so the same link, which
+--  repeats across many alerts, is resolved once. status: 'ok' | 'error'.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS link_resolutions (
+  url_hash    CHAR(64)   NOT NULL,                  -- sha256(source_url) hex
+  source_url  TEXT       NOT NULL,
+  final_url   TEXT       NULL,                       -- resolved final, NULL on error
+  status      VARCHAR(16) NOT NULL DEFAULT 'ok',
+  resolved_at DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (url_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================

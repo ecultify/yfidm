@@ -7,18 +7,20 @@ export const dynamic = "force-dynamic";
 
 /**
  * Lists Brand24 alerts captured from Slack (see /api/slack/events), newest
- * first. The Brand24 page polls this so new mentions "pop up" shortly after
- * Brand24 posts them. Optional `?limit=` and `?sinceId=` query params.
+ * first by real post time. Returns one page: `{ items, total, page, pageSize }`.
+ * The Brand24 page polls this so new mentions "pop up" shortly after Brand24
+ * posts them. Optional `?page=` and `?pageSize=` query params.
  */
 export async function GET(req: NextRequest) {
   try {
     await requireUser();
     const params = req.nextUrl.searchParams;
-    const limit = Number(params.get("limit")) || undefined;
-    const sinceId = Number(params.get("sinceId")) || undefined;
+    const page = Number(params.get("page")) || undefined;
+    const pageSize = Number(params.get("pageSize")) || undefined;
+    const q = params.get("q") || undefined;
 
-    const items = await listBrand24Notifications({ limit, sinceId });
-    return NextResponse.json(items);
+    const result = await listBrand24Notifications({ page, pageSize, q });
+    return NextResponse.json(result);
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status });

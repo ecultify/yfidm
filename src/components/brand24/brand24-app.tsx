@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, ExternalLink, Loader2, Search } from "lucide-react";
+import {
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { ArrowLeftIcon } from "@/components/icons/arrow-left";
 import { BellIcon } from "@/components/icons/bell";
 import { HistoryIcon } from "@/components/icons/history";
@@ -20,13 +27,14 @@ import {
   useBrand24Notifications,
   type Brand24Attachment,
   type Brand24Notification,
+  type ResolvedLink,
 } from "@/lib/hooks/use-brand24";
 
 /** Group notifications under day headers, preserving the newest-first order. */
 function groupByDay(items: Brand24Notification[]) {
   const groups: { day: string; items: Brand24Notification[] }[] = [];
   for (const item of items) {
-    const day = dayLabel(item.createdAt);
+    const day = dayLabel(item.postedAt);
     const last = groups[groups.length - 1];
     if (last && last.day === day) last.items.push(item);
     else groups.push({ day, items: [item] });
@@ -85,51 +93,133 @@ function Attachment({ a }: { a: Brand24Attachment }) {
   );
 }
 
-function NotificationCard({ n }: { n: Brand24Notification }) {
+/** One resolved link in the right-hand column. */
+function LinkItem({ l }: { l: ResolvedLink }) {
+  const href = l.final ?? l.source;
+  const unresolved = !l.final;
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
-      <div className="mb-1.5 flex items-center gap-2">
-        <span className="grid size-5 place-items-center rounded bg-primary/10">
-          <Bell className="size-3 text-primary" />
-        </span>
-        <span className="text-xs font-medium text-muted-foreground">
-          Brand24 alert
-        </span>
-        <span
-          className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
-          title={new Date(n.createdAt).toLocaleString()}
-        >
-          {messageTime(n.createdAt)}
-        </span>
-      </div>
-
-      {n.text && (
-        <p className="mb-2 whitespace-pre-wrap text-sm text-foreground/90">
-          {n.text}
-        </p>
-      )}
-
-      {n.attachments.length > 0 ? (
-        <div className="space-y-2">
-          {n.attachments.map((a, i) => (
-            <Attachment key={i} a={a} />
-          ))}
+    <li>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="group block rounded-md border bg-background px-2 py-1.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+      >
+        <div className="flex items-center gap-1.5">
+          <ExternalLink className="size-3 shrink-0 text-muted-foreground group-hover:text-primary" />
+          <span className="truncate text-xs font-medium">
+            {l.domain ?? "link"}
+          </span>
+          {unresolved && (
+            <span
+              className="ml-auto shrink-0 text-[10px] text-muted-foreground/70"
+              title="Redirect couldn't be resolved — opens the original link"
+            >
+              source
+            </span>
+          )}
         </div>
-      ) : (
-        !n.text && (
-          <p className="text-sm text-muted-foreground">{n.preview}</p>
-        )
-      )}
+        {l.label && (
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {l.label}
+          </p>
+        )}
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
+          {href}
+        </p>
+      </a>
+    </li>
+  );
+}
+
+function NotificationCard({ n }: { n: Brand24Notification }) {
+  const hasLinks = n.links.length > 0;
+  return (
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div
+        className={cn(
+          "grid",
+          hasLinks && "md:grid-cols-[1fr_240px]",
+        )}
+      >
+        {/* Left column: the alert itself */}
+        <div className="min-w-0 p-3">
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="grid size-5 place-items-center rounded bg-primary/10">
+              <Bell className="size-3 text-primary" />
+            </span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Brand24 alert
+            </span>
+            <span
+              className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
+              title={new Date(n.postedAt).toLocaleString()}
+            >
+              {messageTime(n.postedAt)}
+            </span>
+          </div>
+
+          {n.text && (
+            <p className="mb-2 whitespace-pre-wrap text-sm text-foreground/90">
+              {n.text}
+            </p>
+          )}
+
+          {n.attachments.length > 0 ? (
+            <div className="space-y-2">
+              {n.attachments.map((a, i) => (
+                <Attachment key={i} a={a} />
+              ))}
+            </div>
+          ) : (
+            !n.text && (
+              <p className="text-sm text-muted-foreground">{n.preview}</p>
+            )
+          )}
+        </div>
+
+        {/* Right column: resolved final links */}
+        {hasLinks && (
+          <div className="border-t bg-muted/20 p-3 md:border-l md:border-t-0">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              Resolved links
+            </p>
+            <ul className="space-y-1.5">
+              {n.links.map((l, i) => (
+                <LinkItem key={`${l.source}-${i}`} l={l} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+const PAGE_SIZE = 25;
+
 export function Brand24App() {
-  const { data = [], isLoading, isError, error, refetch, isFetching } =
-    useBrand24Notifications();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState(""); // debounced search term sent to the server
+
+  // Debounce typing → query, and reset to page 1 whenever the term changes.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(search.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data, isLoading, isError, error, refetch, isFetching, isPlaceholderData } =
+    useBrand24Notifications(page, q, PAGE_SIZE);
   const me = useCurrentUser();
   const backfill = useBrand24Backfill();
-  const [search, setSearch] = useState("");
+
+  const items = useMemo(() => data?.items ?? [], [data]);
+  const total = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const runBackfill = () => {
     backfill.mutate(undefined, {
@@ -149,42 +239,29 @@ export function Brand24App() {
     });
   };
 
-  // Toast newly-arrived alerts so they "pop up" while the page is open. We seed
-  // the high-water mark on the first successful load (no toast spam for the
-  // backlog), then toast anything with a higher id on subsequent polls.
+  // Toast newly-arrived alerts so they "pop up" while the page is open. Only on
+  // page 1 with no active search (where new alerts land). Seed the high-water
+  // mark on first load so the existing backlog doesn't spam toasts, then toast
+  // anything with a higher id on subsequent polls.
   const seenMaxId = useRef<number | null>(null);
   useEffect(() => {
-    if (data.length === 0) return;
-    const maxId = data[0].id; // newest first
+    if (page !== 1 || q) return;
+    if (items.length === 0) return;
+    const maxId = Math.max(...items.map((n) => n.id));
     if (seenMaxId.current === null) {
       seenMaxId.current = maxId;
       return;
     }
     if (maxId > seenMaxId.current) {
-      const fresh = data.filter((n) => n.id > seenMaxId.current!);
+      const fresh = items.filter((n) => n.id > seenMaxId.current!);
       seenMaxId.current = maxId;
       for (const n of fresh.slice(0, 5)) {
         toast("New Brand24 alert", { description: n.preview });
       }
     }
-  }, [data]);
+  }, [items, page, q]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return data;
-    return data.filter(
-      (n) =>
-        n.preview.toLowerCase().includes(q) ||
-        n.text.toLowerCase().includes(q) ||
-        n.attachments.some((a) =>
-          [a.title, a.text, a.pretext, a.footer]
-            .filter(Boolean)
-            .some((s) => s!.toLowerCase().includes(q)),
-        ),
-    );
-  }, [data, search]);
-
-  const groups = useMemo(() => groupByDay(filtered), [filtered]);
+  const groups = useMemo(() => groupByDay(items), [items]);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -197,7 +274,7 @@ export function Brand24App() {
           className="size-[18px]"
         />
         <span className="text-sm font-semibold">Brand24</span>
-        <span className="text-xs text-muted-foreground">{data.length}</span>
+        <span className="text-xs text-muted-foreground">{total}</span>
         <div className="ml-auto flex items-center gap-1.5">
           {me?.role === "admin" && (
             <Button
@@ -246,7 +323,12 @@ export function Brand24App() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 py-4">
+        <div
+          className={cn(
+            "mx-auto w-full max-w-3xl px-4 py-4",
+            isPlaceholderData && "opacity-60",
+          )}
+        >
           {isLoading && (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -261,14 +343,14 @@ export function Brand24App() {
             </div>
           )}
 
-          {!isLoading && !isError && filtered.length === 0 && (
+          {!isLoading && !isError && items.length === 0 && (
             <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
               <BellIcon size={40} className="mb-3 text-muted-foreground/40" />
               <p className="text-sm font-medium">
-                {search ? "No matching alerts" : "No Brand24 alerts yet"}
+                {q ? "No matching alerts" : "No Brand24 alerts yet"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {search
+                {q
                   ? "Try a different search."
                   : "Alerts appear here as soon as Brand24 posts them to Slack."}
               </p>
@@ -294,6 +376,42 @@ export function Brand24App() {
           ))}
         </div>
       </div>
+
+      {/* Pagination footer */}
+      {total > 0 && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t px-4 py-2.5">
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of{" "}
+            {total}
+            {isFetching && !isPlaceholderData && " · refreshing…"}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isPlaceholderData}
+            >
+              <ChevronLeft className="size-4" />
+              Prev
+            </Button>
+            <span className="px-1 text-xs tabular-nums text-muted-foreground">
+              Page {page} of {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={page >= pageCount || isPlaceholderData}
+            >
+              Next
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
