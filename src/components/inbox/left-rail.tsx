@@ -188,6 +188,21 @@ export function LeftRail() {
             icon={null}
             label="Freshdesk"
           />
+          <RailButton
+            active={false}
+            onClick={() => router.push("/brand24")}
+            accent={
+              <Image
+                src="/brand24.svg"
+                alt=""
+                width={16}
+                height={16}
+                className="size-4"
+              />
+            }
+            icon={null}
+            label="Brand24"
+          />
         </div>
 
         {/* Channels */}

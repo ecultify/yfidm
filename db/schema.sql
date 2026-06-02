@@ -216,6 +216,30 @@ CREATE TABLE IF NOT EXISTS inbox_pulse (
   PRIMARY KEY (k)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+--  Slack notifications — messages another app posts into a Slack channel,
+--  captured via our Slack Events app (POSTed to /api/slack/events). We read
+--  them here because that app's own API is unavailable on our plan.
+--  UNIQUE (channel_id, ts) makes ingestion idempotent: Slack retries an event
+--  if we don't ACK in time, and ON DUPLICATE KEY UPDATE makes the re-insert a
+--  no-op instead of a duplicate row.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS slack_notifications (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  channel_id  VARCHAR(32)     NOT NULL,
+  ts          VARCHAR(32)     NOT NULL,            -- Slack message "ts" (id within channel)
+  app_id      VARCHAR(32)     NULL,                -- posting app id, when present
+  bot_id      VARCHAR(32)     NULL,                -- posting bot id, when present
+  text        MEDIUMTEXT      NULL,                -- plain text (may be empty)
+  attachments JSON            NULL,                -- rich content, when present
+  blocks      JSON            NULL,                -- block kit content, when present
+  raw         JSON            NOT NULL,            -- full event, for anything else
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_channel_ts (channel_id, ts),
+  KEY idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================
