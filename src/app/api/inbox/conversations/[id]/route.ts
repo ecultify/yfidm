@@ -83,8 +83,11 @@ async function logResolvedConversation(id: string): Promise<void> {
   const sorted = [...messages].sort(
     (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
   );
-  const firstInbound = sorted.find((m) => m.direction === "inbound");
-  const when = firstInbound?.sentAt ?? conv.lastMessageAt;
+  // The "query" is the latest thing they actually asked (the message we just
+  // handled), NOT their oldest message ever — DM threads accumulate history.
+  const inbound = sorted.filter((m) => m.direction === "inbound");
+  const query = inbound[inbound.length - 1];
+  const when = query?.sentAt ?? conv.lastMessageAt;
   const tags = conv.tags.filter(Boolean);
 
   await appendSheetRow(`${channel}:${id}`, {
@@ -95,7 +98,7 @@ async function logResolvedConversation(id: string): Promise<void> {
     designation: "Applicant",
     organisation: "",
     typeOfQueries: tags.length ? tags.join(", ") : "General enquiry",
-    query: plain(firstInbound?.body ?? conv.lastMessagePreview),
+    query: plain(query?.body ?? conv.lastMessagePreview),
     personTeam: "",
     documentLink: conv.contact.profileUrl,
     driveLink: "",
