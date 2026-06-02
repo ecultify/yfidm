@@ -68,12 +68,34 @@ function hashUrl(url: string): string {
   return crypto.createHash("sha256").update(url).digest("hex");
 }
 
-function domainOf(url: string | null): string | null {
+export function domainOf(url: string | null): string | null {
   if (!url) return null;
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return null;
+  }
+}
+
+// Brand24's own dashboard/project links — never a mention source.
+const BRAND24_HOST_RE = /(^|\.)brand24\.(com|net)$/i;
+
+/**
+ * Is this the URL of an actual mention (a post/profile/article), as opposed to
+ * Brand24's project dashboard link or a bare platform homepage like
+ * `instagram.com/`? We keep only links that (a) aren't on a brand24 domain and
+ * (b) have a real path — so `instagram.com/reel/XYZ` stays, `instagram.com/` and
+ * `app.brand24.com/...` are dropped.
+ */
+export function isPostLink(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    if (BRAND24_HOST_RE.test(host)) return false;
+    const path = u.pathname.replace(/\/+$/, ""); // strip trailing slash(es)
+    return path !== ""; // empty path === homepage
+  } catch {
+    return false;
   }
 }
 
@@ -186,4 +208,33 @@ export async function resolveLinks(
   }
 
   return result;
+}
+
+/**
+ * Cache-only resolution: returns finals for URLs we've already resolved, without
+ * making any network calls. Used by analytics, which scans many alerts and must
+ * not trigger a flood of live fetches.
+ */
+export async function getCachedFinals(
+  urls: string[],
+): Promise<Map<string, { final: string | null; domain: string | null }>> {
+  const distinct = [...new Set(urls)];
+  const map = new Map<string, { final: string | null; domain: string | null }>();
+  if (distinct.length === 0) return map;
+
+  const hashes = distinct.map(hashUrl);
+  const byHash = new Map(distinct.map((u) => [hashUrl(u), u]));
+  const placeholders = hashes.map(() => "?").join(", ");
+  const cached = await query<CacheRow>(
+    `SELECT url_hash, final_url, status FROM link_resolutions
+       WHERE url_hash IN (${placeholders})`,
+    hashes as SqlParam[],
+  );
+  for (const row of cached) {
+    const src = byHash.get(row.url_hash);
+    if (src) {
+      map.set(src, { final: row.final_url, domain: domainOf(row.final_url ?? src) });
+    }
+  }
+  return map;
 }

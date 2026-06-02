@@ -1,7 +1,14 @@
 import "server-only";
 
 import { execute, query, toIso, type SqlParam } from "./db";
-import { extractLinks, resolveLinks, type ResolvedLink } from "./link-resolver";
+import {
+  domainOf,
+  extractLinks,
+  getCachedFinals,
+  isPostLink,
+  resolveLinks,
+  type ResolvedLink,
+} from "./link-resolver";
 
 /**
  * Brand24 notifications = messages Brand24 posts into our Slack channel,
@@ -224,8 +231,9 @@ export async function listBrand24Notifications(opts?: {
  * resolution failures leave `final: null` and the UI falls back to the source.
  */
 async function attachResolvedLinks(items: Brand24Notification[]): Promise<void> {
-  // Build per-item link lists once, collect the distinct URLs across the page.
-  const perItem = items.map((n) => extractLinks(n.text, n.attachments));
+  // Build per-item link lists once, keeping only real mention/post links (drops
+  // brand24 dashboard links and bare homepages), deduped within each alert.
+  const perItem = items.map((n) => dedupeByUrl(postLinksOf(n.text, n.attachments)));
   const allUrls = perItem.flat().map((l) => l.url);
   if (allUrls.length === 0) return;
 
@@ -242,4 +250,124 @@ async function attachResolvedLinks(items: Brand24Notification[]): Promise<void> 
       };
     });
   });
+}
+
+/** Extracted links filtered down to real mention/post links. */
+function postLinksOf(
+  text: string,
+  attachments: Brand24Attachment[],
+): { url: string; label?: string }[] {
+  return extractLinks(text, attachments).filter((l) => isPostLink(l.url));
+}
+
+/** Keep the first occurrence of each URL. */
+function dedupeByUrl(
+  links: { url: string; label?: string }[],
+): { url: string; label?: string }[] {
+  const seen = new Set<string>();
+  const out: { url: string; label?: string }[] = [];
+  for (const l of links) {
+    if (seen.has(l.url)) continue;
+    seen.add(l.url);
+    out.push(l);
+  }
+  return out;
+}
+
+export interface Brand24LinkStat {
+  url: string;
+  final: string | null;
+  domain: string | null;
+  label?: string;
+  /** Number of alerts that reference this post link. */
+  count: number;
+}
+
+export interface Brand24Analytics {
+  /** Total alerts in the DB. */
+  totalAlerts: number;
+  /** How many of the most-recent alerts we scanned for links. */
+  scanned: number;
+  /** Alerts that contained at least one post link. */
+  alertsWithLinks: number;
+  /** Distinct post links found. */
+  uniqueLinks: number;
+  /** Post-link occurrences grouped by platform/domain, most first. */
+  byDomain: { domain: string; count: number }[];
+  /** Each distinct post link with how many alerts reference it, most first. */
+  topLinks: Brand24LinkStat[];
+}
+
+const ANALYTICS_SCAN_LIMIT = 1000;
+
+/**
+ * Aggregates post links across the most recent alerts: a per-platform breakdown
+ * and a ranked list of links with reference counts. Classification works off the
+ * source URL (no live resolution), and finals are filled from cache only, so
+ * this stays fast over the whole dataset.
+ */
+export async function getBrand24Analytics(): Promise<Brand24Analytics> {
+  const totalRow = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM slack_notifications`,
+  );
+  const totalAlerts = Number(totalRow[0]?.n ?? 0);
+
+  const rows = await query<Row>(
+    `SELECT id, channel_id, ts, app_id, bot_id, text, attachments, created_at
+       FROM slack_notifications
+       ORDER BY CAST(ts AS DECIMAL(20,6)) DESC
+       LIMIT ${ANALYTICS_SCAN_LIMIT}`,
+  );
+
+  const counts = new Map<
+    string,
+    { url: string; label?: string; domain: string | null; count: number }
+  >();
+  const domainCounts = new Map<string, number>();
+  let alertsWithLinks = 0;
+
+  for (const row of rows) {
+    const attachments = asAttachments(row.attachments);
+    const links = dedupeByUrl(postLinksOf(row.text ?? "", attachments));
+    if (links.length > 0) alertsWithLinks++;
+
+    for (const l of links) {
+      const domain = domainOf(l.url);
+      const entry =
+        counts.get(l.url) ?? { url: l.url, label: l.label, domain, count: 0 };
+      entry.count++;
+      if (!entry.label && l.label) entry.label = l.label;
+      counts.set(l.url, entry);
+      if (domain) domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + 1);
+    }
+  }
+
+  // Enrich the ranked links with any cached finals (no network calls).
+  const finals = await getCachedFinals([...counts.keys()]);
+  const topLinks: Brand24LinkStat[] = [...counts.values()]
+    .map((e) => {
+      const f = finals.get(e.url);
+      return {
+        url: e.url,
+        final: f?.final ?? null,
+        domain: f?.domain ?? e.domain,
+        label: e.label,
+        count: e.count,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 100);
+
+  const byDomain = [...domainCounts.entries()]
+    .map(([domain, count]) => ({ domain, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totalAlerts,
+    scanned: rows.length,
+    alertsWithLinks,
+    uniqueLinks: counts.size,
+    byDomain,
+    topLinks,
+  };
 }

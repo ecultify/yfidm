@@ -88,6 +88,40 @@ export function useBrand24Notifications(page: number, q = "", pageSize = 25) {
   });
 }
 
+export interface Brand24LinkStat {
+  url: string;
+  final: string | null;
+  domain: string | null;
+  label?: string;
+  count: number;
+}
+
+export interface Brand24Analytics {
+  totalAlerts: number;
+  scanned: number;
+  alertsWithLinks: number;
+  uniqueLinks: number;
+  byDomain: { domain: string; count: number }[];
+  topLinks: Brand24LinkStat[];
+}
+
+/** Aggregated link analytics for the left column. Polls every 60s. */
+export function useBrand24Analytics() {
+  return useQuery({
+    queryKey: ["brand24", "analytics"],
+    queryFn: async (): Promise<Brand24Analytics> => {
+      const res = await fetch("/api/brand24/analytics", { cache: "no-store" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Couldn't load analytics.");
+      }
+      return res.json();
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
 export interface BackfillResult {
   fetched: number;
   inserted: number;

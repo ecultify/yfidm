@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
+  BarChart3,
   Bell,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Link2,
   Loader2,
   Search,
 } from "lucide-react";
@@ -23,9 +25,11 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/lib/hooks";
 import {
+  useBrand24Analytics,
   useBrand24Backfill,
   useBrand24Notifications,
   type Brand24Attachment,
+  type Brand24LinkStat,
   type Brand24Notification,
   type ResolvedLink,
 } from "@/lib/hooks/use-brand24";
@@ -93,106 +97,207 @@ function Attachment({ a }: { a: Brand24Attachment }) {
   );
 }
 
-/** One resolved link in the right-hand column. */
-function LinkItem({ l }: { l: ResolvedLink }) {
+/** Compact, clickable chip for a resolved post link. */
+function PostLinkChip({ l }: { l: ResolvedLink }) {
   const href = l.final ?? l.source;
-  const unresolved = !l.final;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={href}
+      className="group inline-flex max-w-full items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-accent/40"
+    >
+      <ExternalLink className="size-3 shrink-0 text-muted-foreground group-hover:text-primary" />
+      <span className="truncate font-medium">{l.domain ?? "link"}</span>
+      {!l.final && (
+        <span
+          className="shrink-0 text-[10px] text-muted-foreground/70"
+          title="Redirect couldn't be resolved — opens the original link"
+        >
+          source
+        </span>
+      )}
+    </a>
+  );
+}
+
+function NotificationCard({ n }: { n: Brand24Notification }) {
+  return (
+    <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="grid size-5 place-items-center rounded bg-primary/10">
+          <Bell className="size-3 text-primary" />
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Brand24 alert
+        </span>
+        <span
+          className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
+          title={new Date(n.postedAt).toLocaleString()}
+        >
+          {messageTime(n.postedAt)}
+        </span>
+      </div>
+
+      {n.text && (
+        <p className="mb-2 whitespace-pre-wrap text-sm text-foreground/90">
+          {n.text}
+        </p>
+      )}
+
+      {n.attachments.length > 0 ? (
+        <div className="space-y-2">
+          {n.attachments.map((a, i) => (
+            <Attachment key={i} a={a} />
+          ))}
+        </div>
+      ) : (
+        !n.text && <p className="text-sm text-muted-foreground">{n.preview}</p>
+      )}
+
+      {/* Post link(s) only — the actual mention source. */}
+      {n.links.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Post
+          </span>
+          {n.links.map((l, i) => (
+            <PostLinkChip key={`${l.source}-${i}`} l={l} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Left column: aggregated link analytics across all captured alerts. */
+function AnalyticsPanel() {
+  const { data, isLoading, isError, error } = useBrand24Analytics();
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <BarChart3 className="size-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">Analytics</span>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {isLoading && (
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        )}
+
+        {isError && (
+          <p className="text-sm text-destructive">
+            {(error as Error)?.message ?? "Couldn't load analytics."}
+          </p>
+        )}
+
+        {data && (
+          <div className="space-y-5">
+            {/* Summary stats */}
+            <div className="grid grid-cols-2 gap-2">
+              <Stat label="Alerts" value={data.totalAlerts} />
+              <Stat label="With links" value={data.alertsWithLinks} />
+              <Stat label="Unique links" value={data.uniqueLinks} />
+              <Stat
+                label="Total posts"
+                value={data.byDomain.reduce((s, d) => s + d.count, 0)}
+              />
+            </div>
+
+            {/* By platform */}
+            {data.byDomain.length > 0 && (
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  By platform
+                </p>
+                <ul className="space-y-1.5">
+                  {data.byDomain.map((d) => (
+                    <li
+                      key={d.domain}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="truncate">{d.domain}</span>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                        {d.count}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Top links */}
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Resolved links ({data.uniqueLinks})
+              </p>
+              {data.topLinks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No post links found yet.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {data.topLinks.map((l) => (
+                    <AnalyticsLink key={l.url} l={l} />
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {data.scanned < data.totalAlerts && (
+              <p className="text-[11px] text-muted-foreground/70">
+                Based on the latest {data.scanned} of {data.totalAlerts} alerts.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-card p-2.5">
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function AnalyticsLink({ l }: { l: Brand24LinkStat }) {
+  const href = l.final ?? l.url;
   return (
     <li>
       <a
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="group block rounded-md border bg-background px-2 py-1.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+        title={href}
+        className="group flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
       >
-        <div className="flex items-center gap-1.5">
-          <ExternalLink className="size-3 shrink-0 text-muted-foreground group-hover:text-primary" />
-          <span className="truncate text-xs font-medium">
+        <Link2 className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-medium">
             {l.domain ?? "link"}
           </span>
-          {unresolved && (
-            <span
-              className="ml-auto shrink-0 text-[10px] text-muted-foreground/70"
-              title="Redirect couldn't be resolved — opens the original link"
-            >
-              source
+          {l.label && (
+            <span className="block truncate text-[11px] text-muted-foreground">
+              {l.label}
             </span>
           )}
-        </div>
-        {l.label && (
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-            {l.label}
-          </p>
-        )}
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
-          {href}
-        </p>
+        </span>
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+          {l.count}
+        </span>
       </a>
     </li>
-  );
-}
-
-function NotificationCard({ n }: { n: Brand24Notification }) {
-  const hasLinks = n.links.length > 0;
-  return (
-    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-      <div
-        className={cn(
-          "grid",
-          hasLinks && "md:grid-cols-[1fr_240px]",
-        )}
-      >
-        {/* Left column: the alert itself */}
-        <div className="min-w-0 p-3">
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="grid size-5 place-items-center rounded bg-primary/10">
-              <Bell className="size-3 text-primary" />
-            </span>
-            <span className="text-xs font-medium text-muted-foreground">
-              Brand24 alert
-            </span>
-            <span
-              className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
-              title={new Date(n.postedAt).toLocaleString()}
-            >
-              {messageTime(n.postedAt)}
-            </span>
-          </div>
-
-          {n.text && (
-            <p className="mb-2 whitespace-pre-wrap text-sm text-foreground/90">
-              {n.text}
-            </p>
-          )}
-
-          {n.attachments.length > 0 ? (
-            <div className="space-y-2">
-              {n.attachments.map((a, i) => (
-                <Attachment key={i} a={a} />
-              ))}
-            </div>
-          ) : (
-            !n.text && (
-              <p className="text-sm text-muted-foreground">{n.preview}</p>
-            )
-          )}
-        </div>
-
-        {/* Right column: resolved final links */}
-        {hasLinks && (
-          <div className="border-t bg-muted/20 p-3 md:border-l md:border-t-0">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              Resolved links
-            </p>
-            <ul className="space-y-1.5">
-              {n.links.map((l, i) => (
-                <LinkItem key={`${l.source}-${i}`} l={l} />
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -310,19 +415,27 @@ export function Brand24App() {
         </div>
       </header>
 
-      <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search alerts…"
-            className="h-8 pl-8 text-sm"
-          />
-        </div>
-      </div>
+      <div className="flex min-h-0 flex-1">
+        {/* Left column: analytics */}
+        <aside className="hidden w-80 shrink-0 flex-col border-r xl:flex">
+          <AnalyticsPanel />
+        </aside>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Right column: notifications feed + pagination */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search alerts…"
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
         <div
           className={cn(
             "mx-auto w-full max-w-3xl px-4 py-4",
@@ -412,6 +525,8 @@ export function Brand24App() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
