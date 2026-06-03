@@ -19,7 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useSendMessage, useAddNote } from "@/lib/hooks";
-import { CANNED_REPLIES } from "@/lib/services/mock-data";
+import { CANNED_REPLIES, SBI_CANNED_REPLIES } from "@/lib/services/mock-data";
 import type { Channel } from "@/lib/types";
 import { CHANNELS } from "@/lib/channel";
 
@@ -48,6 +48,12 @@ export function Composer({
   const sendMessage = useSendMessage(conversationId);
   const addNote = useAddNote(conversationId);
   const meta = CHANNELS[channel];
+
+  // Instagram & LinkedIn also get the SBI Fellowship reply templates.
+  const cannedReplies =
+    channel === "instagram" || channel === "linkedin"
+      ? [...CANNED_REPLIES, ...SBI_CANNED_REPLIES]
+      : CANNED_REPLIES;
 
   const isNote = mode === "note";
   // The reply window only gates outbound Instagram replies, never internal notes.
@@ -186,7 +192,7 @@ export function Composer({
                 Quick replies
               </p>
               <div className="space-y-0.5">
-                {CANNED_REPLIES.map((c) => (
+                {cannedReplies.map((c) => (
                   <button
                     key={c.title}
                     onClick={() => insertCanned(c.body)}

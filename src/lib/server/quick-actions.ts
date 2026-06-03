@@ -27,8 +27,10 @@ import {
  * irreversible. The wording below is sent verbatim — do not edit, summarise, or
  * reorder it. These are defined here in code (not user-editable).
  *
- * SERVER ONLY. The reply bodies never go to the client; the frontend only sees
- * key + label + summary.
+ * SERVER ONLY for execution. The exact reply text is also surfaced to the
+ * client (via quickActionList) so an agent can "Apply" an action — drop its
+ * wording into the reply box and personalise it before sending — as an
+ * alternative to "Execute", which sends it verbatim immediately.
  */
 
 export interface QuickAction {
@@ -112,12 +114,22 @@ function summarize(a: QuickAction): string {
   return parts.join(", ");
 }
 
-/** Public, key-safe list for the client (no reply bodies). */
-export function quickActionList(): { key: string; label: string; summary: string }[] {
+/**
+ * Public list for the client: key + label + property summary + the exact reply
+ * body. The body lets the agent "Apply" an action into the reply editor and
+ * personalise it; "Execute" still sends the same wording verbatim server-side.
+ */
+export function quickActionList(): {
+  key: string;
+  label: string;
+  summary: string;
+  body: string;
+}[] {
   return QUICK_ACTIONS.map((a) => ({
     key: a.key,
     label: a.label,
     summary: summarize(a),
+    body: a.replyText,
   }));
 }
 

@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/support/quick-actions - the predefined quick actions (key + label +
- * action summary). The reply bodies stay server-side and are never sent here.
+ * action summary + reply body). The body is surfaced so the agent can "Apply" an
+ * action into the reply editor and personalise it; "Execute" sends it verbatim.
  */
 export async function GET() {
   try {

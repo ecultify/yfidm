@@ -386,6 +386,55 @@ export const CANNED_REPLIES: { title: string; body: string }[] = [
   },
 ];
 
+/**
+ * SBI Youth for India Fellowship replies, mirroring the Freshdesk quick actions.
+ * Surfaced as extra canned replies on Instagram & LinkedIn so an agent can drop
+ * one in and personalise before sending. Plain text (composer sends as typed).
+ */
+export const SBI_CANNED_REPLIES: { title: string; body: string }[] = [
+  {
+    title: "Applicant Response",
+    body: `Dear Applicant,
+
+Thank you for reaching out to us.
+
+As stated in the official communication, applications for the SBI Youth for India Fellowship 2026–27 cycle are closed, as the programme is undergoing an internal organisational review and alignment process.
+
+Accordingly, no fresh Fellow registrations, recruitment outreach, selection process, or induction activity will be undertaken for the 2026–27 cycle.
+
+The official website will remain the source for any official information regarding the Fellowship.
+
+Thank you for your understanding.
+
+Regards,
+Team SBI Youth for India Fellowship`,
+  },
+  {
+    title: "Recruitment Query",
+    body: `Hi
+
+Thank you for reaching out to us.
+
+This channel is dedicated to communication related to the SBI Youth for India Fellowship. For job opportunities, recruitment updates, or career-related queries with SBI, we request you to refer to the official SBI Careers portal or the relevant official SBI communication channels.
+
+Regards,
+Team SBI Youth for India Fellowship`,
+  },
+  {
+    title: "Registered/Selected Candidates",
+    body: `Dear Applicant,
+
+Thank you for applying to the SBI Youth for India Fellowship.
+
+Relevant communication regarding the 2026–27 Fellowship cycle has been shared through official email communication sent to registered email IDs.
+
+We request you to check your registered email inbox for any communication from the SBI Youth for India Fellowship team.
+
+Regards,
+Team SBI Youth for India Fellowship`,
+  },
+];
+
 /** Pool of suggested tags for the tag picker. */
 export const SUGGESTED_TAGS = [
   "VIP",

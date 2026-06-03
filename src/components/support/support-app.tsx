@@ -887,9 +887,16 @@ function CannedManager({
 function Composer({
   ticketId,
   onOpenManage,
+  pendingInsert,
 }: {
   ticketId: number;
   onOpenManage: () => void;
+  /**
+   * When the agent clicks "Apply" on a quick action (in the header), the parent
+   * bumps this so its plain text gets dropped into the reply editor for editing.
+   * The nonce makes repeated applies of the same action re-fire the effect.
+   */
+  pendingInsert: { text: string; nonce: number } | null;
 }) {
   // reply is HTML (from the rich editor); resetKey re-seeds the editor on
   // clear / template insert. note stays plain text (converted on send).
@@ -900,12 +907,19 @@ function Composer({
   const noteMut = useAddTicketNote(ticketId);
   const { data: templates = [] } = useCannedResponses();
 
-  const insertTemplate = (t: CannedResponse) => {
-    setReply((prev) =>
-      isEmptyHtml(prev) ? textToHtml(t.body) : prev + textToHtml(t.body),
-    );
+  const insertHtml = (html: string) => {
+    setReply((prev) => (isEmptyHtml(prev) ? html : prev + html));
     setResetKey((k) => k + 1);
   };
+
+  const insertTemplate = (t: CannedResponse) => insertHtml(textToHtml(t.body));
+
+  // Seed the reply editor when the parent applies a quick action.
+  useEffect(() => {
+    if (!pendingInsert) return;
+    insertHtml(textToHtml(pendingInsert.text));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInsert]);
 
   const sendReply = () => {
     if (isEmptyHtml(reply)) return;
@@ -1042,6 +1056,20 @@ function TicketDetailView({
   const { data: quickActions = [] } = useQuickActions();
   const quickActionMut = useApplyQuickAction(ticketId);
   const [confirmAction, setConfirmAction] = useState<QuickAction | null>(null);
+  const [qaOpen, setQaOpen] = useState(false);
+  // "Apply" hands a quick action's wording to the Composer. The nonce lets the
+  // same action be applied more than once.
+  const [pendingInsert, setPendingInsert] = useState<
+    { text: string; nonce: number } | null
+  >(null);
+  const nonceRef = useRef(0);
+
+  const applyQuickAction = (a: QuickAction) => {
+    nonceRef.current += 1;
+    setPendingInsert({ text: a.body, nonce: nonceRef.current });
+    setQaOpen(false);
+    toast.success(`"${a.label}" added to the reply — personalise it, then send.`);
+  };
 
   const runQuickAction = (a: QuickAction) => {
     quickActionMut.mutate(a.key, {
@@ -1109,7 +1137,7 @@ function TicketDetailView({
                 </Button>
               }
             />
-            <DropdownMenu>
+            <DropdownMenu open={qaOpen} onOpenChange={setQaOpen}>
               <DropdownMenuTrigger asChild disabled={quickActionMut.isPending}>
                 <Button variant="outline" size="sm" className="h-7">
                   {quickActionMut.isPending ? (
@@ -1121,25 +1149,48 @@ function TicketDetailView({
                   <ChevronDown className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel>Quick actions</DropdownMenuLabel>
+                <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                  <b>Apply</b> drops the wording into the reply to personalise.{" "}
+                  <b>Execute</b> sends it as-is.
+                </div>
                 <DropdownMenuSeparator />
                 {quickActions.length === 0 && (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
                     No quick actions configured.
                   </div>
                 )}
-                {quickActions.map((a) => (
-                  <DropdownMenuItem
-                    key={a.key}
-                    onSelect={() => setConfirmAction(a)}
-                    className="flex-col items-start gap-0.5"
-                  >
-                    <span className="font-medium">{a.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {a.summary}
-                    </span>
-                  </DropdownMenuItem>
+                {quickActions.map((a, i) => (
+                  <div key={a.key}>
+                    {i > 0 && <DropdownMenuSeparator />}
+                    <div className="px-2 py-2">
+                      <p className="text-sm font-medium">{a.label}</p>
+                      <p className="text-xs text-muted-foreground">{a.summary}</p>
+                      <div className="mt-2 flex gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 flex-1"
+                          onClick={() => applyQuickAction(a)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Apply
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 flex-1"
+                          onClick={() => {
+                            setConfirmAction(a);
+                            setQaOpen(false);
+                          }}
+                        >
+                          <Play className="size-3.5" />
+                          Execute
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1192,7 +1243,11 @@ function TicketDetailView({
         </ScrollArea>
 
         <div className="flex w-[420px] shrink-0 flex-col border-l bg-muted/10">
-          <Composer ticketId={ticket.id} onOpenManage={onOpenManage} />
+          <Composer
+            ticketId={ticket.id}
+            onOpenManage={onOpenManage}
+            pendingInsert={pendingInsert}
+          />
         </div>
       </div>
 

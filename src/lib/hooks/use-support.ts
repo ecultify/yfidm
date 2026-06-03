@@ -90,6 +90,8 @@ export interface QuickAction {
   key: string;
   label: string;
   summary: string;
+  /** Exact reply wording — used by "Apply" to seed the reply editor. */
+  body: string;
 }
 
 export interface QuickActionBulkResult {
